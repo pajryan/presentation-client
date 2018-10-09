@@ -1,7 +1,7 @@
 'use strict'
 /* tslint:disable */
 const sql = require('mssql')
-const pwd = require('../../../../PASSWORDS.json')
+const pwd = require('../../../configuration/PASSWORDS.json')
 const path = require('path');
 const fs = require('fs')
 
