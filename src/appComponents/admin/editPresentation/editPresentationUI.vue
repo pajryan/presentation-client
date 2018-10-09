@@ -63,7 +63,7 @@
   const validDataValues = dataSourceConfig.dataSources.map(d => d.name)         // just expose the name
   schema.definitions.dataFileValues.enum = validDataValues                      // update the definition of the schema
   // now go get an enum of components from the componentMap
-  import components from './../../../pageComponents/_componentMap.ts'
+  import * as components from './../../../pageComponents/_componentMap.ts'
   schema.definitions.componentsList.enum = components
 
 

@@ -86,7 +86,8 @@
   import Vue from 'vue'
   import dataSourceConfig from './dataSourceConfig.json'
   import dataSourceConfigSchema from './dataSourceConfigSchema.json'
-  import queryRunnerFileWriter from './queryRunnerFileWriter.js'
+  // import queryRunnerFileWriter from './queryRunnerFileWriter.ts'
+  const queryRunnerFileWriter = require('./queryRunnerFileWriter.ts')
   import jquery from 'jquery'
   let $ = jquery
   import 'bootstrap-datepicker'

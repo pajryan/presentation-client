@@ -9,6 +9,7 @@ export default new Vuex.Store({
   state: {
     isAdminUser: true,
     isAdminShown: true,
+    isFirstTimeUser: false,
 
     applicationVersion: appVersion
   },

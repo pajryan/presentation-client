@@ -71,20 +71,19 @@
 
 
 <script>
-  /* tslint:disable */
   import Vue from 'vue'
-  import { setTimeout } from 'timers';
-  import { arch } from 'os';
+  import { setTimeout } from 'timers'
+  import { arch } from 'os'
 
-  let classReady = 'btn btn-primary btn-sm'
-  let classSuccess = 'btn btn-success btn-sm'
-  let classFail = 'btn btn-danger btn-sm'
-  let classInProgress = 'btn btn-warning btn-sm'
+  const classReady = 'btn btn-primary btn-sm'
+  const classSuccess = 'btn btn-success btn-sm'
+  const classFail = 'btn btn-danger btn-sm'
+  const classInProgress = 'btn btn-warning btn-sm'
 
   export default {
-    props: ['adminObj'], 
+    props: ['adminObj'],
 
-    data () {
+    data() {
       return {
         isRunningArchive: false,
         archiveButtonClass: classReady,
@@ -97,63 +96,62 @@
         getPublishedArchivesButtonClass: classReady,
         getPublishedArchivesErrorMsg: '',
         existingPublishedArchives: []
-        
       }
     },
-    mounted () {
+    mounted() {
       this.getLocalArchives()
     },
 
     methods: {
-      createArchive(){
-        this.isRunningArchive = true;
+      createArchive() {
+        this.isRunningArchive = true
         this.archiveButtonClass = classInProgress
         this.adminObj.archiveLocalData(err => {
-          this.isRunningArchive = false;
-          if(err){
-            this.archiveButtonClass = classFail;
-            this.archiveErrorMsg = 'Failed to create archive. ('+err+')'
-          }else{
-            this.getLocalArchives();  //update the archives list
-            this.archiveButtonClass = classSuccess;
-            this.archiveSuccessMsg = 'Archive successfully created';
-            setTimeout(() => { 
+          this.isRunningArchive = false
+          if (err) {
+            this.archiveButtonClass = classFail
+            this.archiveErrorMsg = 'Failed to create archive. (' + err + ')'
+          } else {
+            this.getLocalArchives()  // update the archives list
+            this.archiveButtonClass = classSuccess
+            this.archiveSuccessMsg = 'Archive successfully created'
+            setTimeout(() => {
               this.archiveButtonClass = classReady
               this.archiveSuccessMsg = ''
             }, 2000)
           }
-        });
-      },
-
-      getLocalArchives(){
-        this.existingLocalArchives = this.adminObj.getLocalArchives();
-        //sort with most recent date on top
-        this.existingLocalArchives = this.existingLocalArchives.sort((a,b) => {
-          return a>b ? -1 : 1;
         })
       },
 
-      titleToDate(filename){  // dataArchive_yyyy-mm-dd-hh-mm-ss.zip   (month is 1-based. )
-        try{
-          let dateStr = filename.split('_')[1].replace('.zip', '')
-          let dateParts = dateStr.split('-')
+      getLocalArchives() {
+        this.existingLocalArchives = this.adminObj.getLocalArchives()
+        // sort with most recent date on top
+        this.existingLocalArchives = this.existingLocalArchives.sort((a, b) => {
+          return a > b ? -1 : 1
+        })
+      },
+
+      titleToDate(filename) {  // dataArchive_yyyy-mm-dd-hh-mm-ss.zip   (month is 1-based. )
+        try {
+          const dateStr = filename.split('_')[1].replace('.zip', '')
+          const dateParts = dateStr.split('-')
           return dateParts[1] + '/' + dateParts[2] + '/' + dateParts[0] + ' at ' + dateParts[3] + ':' + dateParts[4] + ':' + dateParts[5]
-        }catch(e){
+        } catch (e) {
           return filename
         }
       },
 
-      publishArchive(archiveFileName){
-        console.log('going to publish to server: ', archiveFileName);
-        this.event = event;
-        this.event.target.className = classInProgress;
+      publishArchive(archiveFileName) {
+        log.log('going to publish to server: ', archiveFileName)
+        this.event = event
+        this.event.target.className = classInProgress
         this.adminObj.publishDataArchive(archiveFileName, (res, err) => {
-          if(err){
-            console.log('Error publishing archive', err)
-            this.event.target.className = classFail;
-          }else{
-            console.log('Success publishing archive', res)
-            this.event.target.className = classSuccess;
+          if (err) {
+            log.log('Error publishing archive', err)
+            this.event.target.className = classFail
+          } else {
+            log.log('Success publishing archive', res)
+            this.event.target.className = classSuccess
             setTimeout(() => {
               this.event.target.className = classReady
             }, 2000)
@@ -161,63 +159,63 @@
         })
       },
 
-      downloadDataArchiveList(){
-        this.isRunningGetPublishedArchives = true;
+      downloadDataArchiveList() {
+        this.isRunningGetPublishedArchives = true
         // this.getPublishedArchivesButtonClass = classInProgress;
-        this.adminObj.downloadDataArchiveList((res,err) => {
-          this.isRunningGetPublishedArchives = false;
-          if(err){
-            this.getPublishedArchivesButtonClass = classFail;
-            this.getPublishedArchivesErrorMsg = 'Failed to get published archives. ('+err+')'
+        this.adminObj.downloadDataArchiveList((res, err) => {
+          this.isRunningGetPublishedArchives = false
+          if (err) {
+            this.getPublishedArchivesButtonClass = classFail
+            this.getPublishedArchivesErrorMsg = 'Failed to get published archives. (' + err + ')'
 
-          }else{
-            console.log('got list of remote archives', res)
+          } else {
+            log.log('got list of remote archives', res)
             // this.getPublishedArchivesButtonClass = classSuccess;
-            this.existingPublishedArchives = res.data.archives;
-            //sort with most recent date on top
-            this.existingPublishedArchives = this.existingPublishedArchives.sort((a,b) => {
-              return a>b ? -1 : 1;
+            this.existingPublishedArchives = res.data.archives
+            // sort with most recent date on top
+            this.existingPublishedArchives = this.existingPublishedArchives.sort((a, b) => {
+              return a > b ? -1 : 1
             })
             setTimeout(() => {
               this.getPublishedArchivesButtonClass = classReady
             }, 2000)
           }
-        });
+        })
       },
 
-      downloadPublishedArchiveToLocal(archiveFileName){
-        console.log('downloading archive', archiveFileName)
+      downloadPublishedArchiveToLocal(archiveFileName) {
+        log.log('downloading archive', archiveFileName)
         // this.event = event;
         // this.event.target.className = classInProgress;
         this.adminObj.downloadOneDataArchive(archiveFileName, (res, err) => {
-          if(err){
-            console.log('Error downloading archive', err)
-            this.event.target.className = classFail;
-          }else{
-            console.log('Success downloading archive')
+          if (err) {
+            log.log('Error downloading archive', err)
+            this.event.target.className = classFail
+          } else {
+            log.log('Success downloading archive')
             // this.event.target.className = classSuccess;
-            //refresh the local and published lists
-            this.downloadDataArchiveList();
-            this.getLocalArchives();
+            // refresh the local and published lists
+            this.downloadDataArchiveList()
+            this.getLocalArchives()
           }
         })
       },
 
-      deployArchive(archiveFileName){
-        if(window.confirm('This will overwrite your existing data. Do you want to continue? This cannot be undone.')){
+      deployArchive(archiveFileName) {
+        if (window.confirm('This will overwrite your existing data. Do you want to continue? This cannot be undone.')) {
 
-          let fullDelete = window.confirm('Do you want to remove all existing data before using this archive?')
+          const fullDelete = window.confirm('Do you want to remove all existing data before using this archive?')
 
-          console.log('deploying archive', archiveFileName)
-          this.event = event;
-          this.event.target.className = classInProgress;
+          log.info('deploying archive', archiveFileName)
+          this.event = event
+          this.event.target.className = classInProgress
           this.adminObj.deployArchive(fullDelete, archiveFileName, (err) => {
-            if(err){
-              console.log('Error deploying archive', err)
-              this.event.target.className = classFail;
-            }else{
-              console.log('Success deploying archive')
-              this.event.target.className = classSuccess;
+            if (err) {
+              log.error('Error deploying archive', err)
+              this.event.target.className = classFail
+            } else {
+              log.info('Success deploying archive')
+              this.event.target.className = classSuccess
               setTimeout(() => {
                 this.event.target.className = classReady
               }, 2000)
@@ -226,9 +224,6 @@
         }
       }
 
-
-
-     
     }
   }
 
@@ -236,7 +231,7 @@
   
 </script>
 
-<style scoped lang="less">
+<style scoped lang="scss">
 
   
 </style>

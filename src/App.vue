@@ -17,17 +17,22 @@
 
 <script>
 import { mapState } from 'vuex' // import state
-const Admin = require('@/appComponents/Admin.vue').default
-const GlobalNavigation = require('@/appComponents/GlobalNavigation.vue').default
-const Slideshow = require('@/appComponents/Slideshow.vue').default
-const TableOfContents = require('@/appComponents/TableOfContents.vue').default
+import Admin from '@/appComponents/Admin.vue'
+import GlobalNavigation from '@/appComponents/GlobalNavigation.vue'
+import Slideshow from '@/appComponents/Slideshow.vue'
+import TableOfContents from '@/appComponents/TableOfContents.vue'
+
+import buildApp from './appComponents/admin.js'
+
 export default {
   components: {Admin, GlobalNavigation, Slideshow, TableOfContents},
   computed: {
     ...mapState(['isAdmin', 'isAdminShown'])
   },
   mounted() {
-    // empty
+    // want to check if this is a first time user.  If so, default to the configuration tab so they can fill out required content
+    //  We will check if they're first time by examining their storage directory. If it doesn't have the config file, they're new.
+
   }
 }
 </script>
