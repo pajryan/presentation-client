@@ -1,0 +1,181 @@
+{
+  "definitions":{
+    "dataFileValues": {
+      "enum": [
+        "dataOne", 
+        "dataTwo", 
+        "This entire enum array will be overwritten in editPresentationUI.vue by the `name` of the `dataSources` items in  of /adminUI/generateData/dataSourceConfig.json"
+      ]
+    },
+    "componentsList": {
+      "enum": [
+        "componentOne",
+        "componentTwo",
+        "This entire enum array will be overwritten in editPresentationUI.vue by the keys in `components` in  of /components/_componentMap.json"
+      ]
+    }
+  },  
+
+
+  "type": "object",
+  "title": " ",
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "title": " ",
+      "properties": {
+        "title":{
+          "type": "string",
+          "title": "presentation title",
+          "default": "DCI"
+        },
+        "version":{
+          "type": "number",
+          "readonly": true
+        },
+        "author":{
+          "type": "string",
+          "readonly": false
+        },
+        "creationDate":{
+          "type": "integer",
+          "title": "creation date",
+          "readonly": true,
+          "options": { "hidden": true }
+        },
+        "id":{
+          "type": "string",
+          "title": "presentation id",
+          "readonly": true,
+          "options": { "hidden": true }
+        },
+        "isPublished":{
+          "type": "boolean",
+          "title": "has been published to server?",
+          "format": "checkbox",
+          "readonly": true,
+          "options": { "hidden": true }
+        }
+      }
+        
+    },
+    "presentation": {
+      "type": "object",
+      "title": " ",
+      "properties":{
+        "sections":{
+          "type": "array",
+          "minItems": 1,
+          "format": "tabs",
+          "title": " ",
+          "items": {
+            "type": "object",
+            "title": "section",
+            "properties": {
+              "title":{
+                "type": "string",
+                "title": "section title"
+              },
+              "thumbnail":{
+                "type": "string",
+                "title": "section thumbnail image"
+              },
+              "pages":{
+                "type": "array",
+                "minItems": 1,
+                "format": "tabs",
+                "title": " ",
+                "items": {
+                  "type": "object",
+                  "title": "page",
+                  "properties": {
+                    "title":{
+                      "type": "string"
+                    },
+                    "pageItems": {
+                      "type": "array",
+                      "minItems": 1,
+                      "format": "table",
+                      "title": "page items",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "percentWidth": {
+                            "type": "integer",
+                            "title": "width (%)",
+                            "default": 100,
+                            "minimum": 0,
+                            "maximum": 100
+                          },
+
+
+                          "type":{
+                            "type": "object",
+                            "oneOf": [
+                              {
+                                "title": "image",
+                                "properties": {
+                                  "image": {
+                                    "title": " ",
+                                    "type": "string",
+                                    "format": "url",
+                                    "options": {
+                                      "upload": true
+                                    },
+                                    "links": [
+                                      {
+                                        "href": "{{self}}",
+                                        "mediaType": "image/png",
+                                        "class": "inlineImagePreview"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "additionalProperties":false
+                              },
+                              {
+                                "title": "text",
+                                "properties": {
+                                  "mmdText":{
+                                    "title": " ",
+                                    "type": "string",
+                                    "format": "markdown"
+                                  }
+                                },
+                                "additionalProperties":false
+                              },
+                              {
+                                "title": "component",
+                                "properties": {
+                                  "component":{
+                                    "type": "string",
+                                    "title": "component",
+                                    "$ref": "#/definitions/componentsList"
+                                  },
+                                  "data":{
+                                    "type": "array",
+                                    "format": "table",
+                                    "title": "data items",
+                                    "items": {
+                                      "type": "string",
+                                      "$ref": "#/definitions/dataFileValues"
+                                    }
+                                  }
+                                },
+                                "additionalProperties":false
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

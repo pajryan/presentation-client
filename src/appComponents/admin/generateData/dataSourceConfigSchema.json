@@ -1,0 +1,121 @@
+{
+  "definitions": {
+    
+    "globalInputParameters": {
+      "type": "array",
+      "items":{
+        "type": "object",
+        "properties":{
+          "referenceId": {
+            "type": "string",
+            "title": "reference ID (used to e.g. convert a field to a datepicker by getElementById(referenceId)...",
+            "default": ""
+          },
+          "label": {
+            "type": "string",
+            "title": "ui label",
+            "default": ""
+          },
+          "type": {
+            "type": "string",
+            "enum": ["datetime", "varchar", "int", "float"],
+            "title": "type",
+            "default": ""
+          },
+          "value": {
+            "title": "default value (special cases: {today})",
+            "default": ""
+          }
+        },
+        "required": [
+          "referenceId",
+          "label",
+          "type"
+        ]
+      }
+    },
+
+
+    "sqlParameters": {
+      "type": "array",
+      "items":{
+        "type": "object",
+        "properties":{
+          "referenceId": {
+            "type": "string",
+            "title": "reference ID (used to e.g. convert a field to a datepicker by getElementById(referenceId)...",
+            "default": ""
+          },
+          "label": {
+            "type": "string",
+            "title": "ui label",
+            "default": ""
+          },
+          "type": {
+            "type": "string",
+            "enum": ["datetime", "varchar", "int", "float"],
+            "title": "type",
+            "default": ""
+          },
+          "value": {
+            "title": "default value (special cases: {today})",
+            "default": ""
+          }
+        },
+        "required": [
+          "label",
+          "type"
+        ]
+      }
+    }
+
+
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "globalInputs",
+    "dataSources"
+  ],
+  "properties": {
+    "globalInputs": {
+      "type": "array",
+      "title": "Global Inputs",
+      "$ref": "#/definitions/globalInputParameters"
+    },
+    "dataSources": {
+      "type": "array",
+      "title": "Data Sources",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "isStoredProcedure",
+          "sqlString"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "object name and filename (no spaces!)",
+            "default": ""
+          },
+          "isStoredProcedure": {
+            "type": "boolean",
+            "title": "is stored procedure?",
+            "default": false
+          },
+          "sqlString": {
+            "type": "string",
+            "title": "Sql string (parameters use {n}th parameter below)",
+            "default": ""
+          },
+          "sqlParameters": {
+            "type": "array",
+            "title": "parameters",
+            "$ref": "#/definitions/sqlParameters"
+          }
+        }
+      }
+    }
+  }
+}
