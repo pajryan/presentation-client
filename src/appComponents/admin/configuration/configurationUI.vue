@@ -1,7 +1,8 @@
 <template>
     
     <div>
-      <div v-if="firstTimeuser">
+      <div >
+        <!-- v-if="isFirstTimeUser" -->
         <h3>Welcome to the application!</h3>
         <p>This is your first time launching the application, so you have been directed to the admin configuration section to do a bit of setup</p>
         <p>
@@ -53,23 +54,27 @@
 
 
 <script>
-  import Vue from 'vue'
+  import { mapState } from 'vuex' // import state
+  import log from 'electron-log'
 
   export default {
-    props: ['adminObj'],
-
+    computed: {
+      ...mapState(['isFirstTimeUser'])
+    },
     data() {
       return {
-        firstTimeuser: false,
+        // showFirstTimeUserMessage: false,
         successMsg: '',
         errorMsg: '',
         dataStorePath: ''
       }
     },
     mounted() {
-      this.firstTimeuser = this.adminObj.firstTimeUser()
-      this.firstTimeuser = true
-      this.dataStorePath = this.adminObj.getAppDataPath()
+      setTimeout(() => { // setTimeout to put this into event queue
+        log.info('isFirst time user', this.isFirstTimeUser)
+        // showFirstTimeUserMessage = this.$store.state.isFirstTimeUser
+      }, 0)
+      // empty
     },
     methods: {
       checkInputs(event) {

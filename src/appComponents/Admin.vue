@@ -10,13 +10,12 @@
         </div>
       </div>
     </div>
-    
     <ul class="nav nav-tabs">
       <li v-for="tab in tabs" class="nav-item"  :key="tab.index">
         <a href="#" v-if="!tab.isAdminOnly || isAdminUser" class="nav-link" :class="{active:tab.isActive}" @click.stop.prevent="setActive(tab)">{{ tab.name }}</a>
       </li>
     </ul>
-    <div class="tab-content">       
+    <div class="tab-content">  
       <div v-for="tab in tabs" :key="tab.index" class="tab-pane" :class="{active:tab.isActive}">
         <div v-if="!tab.isAdminOnly || isAdminUser" :id="tab.childId">{{tab.childId}}</div>
       </div>
@@ -38,8 +37,8 @@ import ArchiveData from '@/appComponents/admin/archiveData/archiveDataUI.vue'
 import log from 'electron-log'
 
 
-
 export default{
+  props: ['jumpToConfigTab'],
   components: {
     UpdateData,
     EditPresentation,
@@ -51,7 +50,6 @@ export default{
   },
   data() {
     return {
-      shown: true,
       tabIndex: 0,
       tabs: [
         {name: 'update data', index: 0, isActive: true, hasBeenLoaded: false, childId: 'adminUpdateData', uiToLoad: UpdateData, isAdminOnly: false},
@@ -75,21 +73,10 @@ export default{
     // because the tabs are getting defined above, they are still being written to the DOM when this code runs. Need to show a given tab after the DOM loads
     //  https://github.com/vuejs/vue/issues/2918
     setTimeout(() => { // setTimeout to put this into event queue
-      // if (this.adminObj.firstTimeUser()) {
-      //   this.tabIndex = 3
-      //   this.shown = true
-      //   this.adminObj.isShown(this.shown)
-      //   this.setActive(this.tabs[this.tabIndex])
-      // }
-
-      // this is for debugging purposes so I don't have to open admin every time (when I'm working on it.)
-      // console.error('defaulting admin view to on! (adminUI.vue, line 83)')
-      // this.shown=true; this.tabIndex=5;
-      log.info('have built tabs')
-      if (this.shown) {
-        log.info('showing tab', this.tabIndex)
-        this.setActive(this.tabs[this.tabIndex])
+      if (this.jumpToConfigTab) {
+        this.tabIndex = 3
       }
+      this.setActive(this.tabs[this.tabIndex])
     }, 0)
   },
   methods: {
@@ -113,6 +100,7 @@ export default{
         tab.hasBeenLoaded = true
         this.vues[tab.index] = new Vue({
           el: '#' + tab.childId,
+          store: this.$store,
           render: h => h(tab.uiToLoad, { props: {adminObj: this.adminObj } })
         })
       } else {
