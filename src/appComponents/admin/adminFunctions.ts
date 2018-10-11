@@ -6,182 +6,120 @@
  *  - however, this will post/get from the update server. So the state of the SERVER may change.
  */
 
-
 import path from 'path'
 import fs from 'fs'
-import store from '../store'
+import store from '@/store'
+
+import {AppConfig, Passwords} from '@/configuration/configurationTypes'
 
 const unzipper = require('unzipper')
 
-const utils = require ('./adminUtils.ts')
+const passwords: Passwords = require('@/configuration/PASSWORDS.json')
+
+import * as utils from './adminUtils'
+// const utils = require ('./adminUtils.ts')
 // const msg = require ('./../messages.js');
 import log from 'electron-log'
 
 
-  // let _toc         // like this admin obj, the toc obj.  Creating a reference here will allow toc functions to run from admin (and vice versa)
-  // let _slideshow   // like this admin obj, the slideshow obj.  Creating a reference here will allow slideshow functions to run from admin (and vice versa
-  // let _state       // global state object
+type CallbackSuccess = (success: boolean) => void
+type CallbackSuccessErr = (success: boolean, error?: ErrorObject) => void
 
-  // let autoUpdater
-  // let appConfigPath
-  // let appDataPath
-  // let appDataArchivePath
-  // let appPresentationPath
-  // let appImagePath
-  // let appPresentationConfig
-  // let dataToUpdate = []
-  // let unpublishedImageObj = []
-  // let missingImages = []
-  // const adminVue = null
-  // let isShown = false
+interface StatusErrorObject {
+  status: number
+  error?: any
+}
+interface ErrorObject {
+  error: any
+}
 
-  // let isFirstTimeUser = false  // if this goes true, the user will be launched directly to admin configuration
-
-
-  // function admin() {
-
-  //   appConfigPath = path.join(_state.appPath, _state.appConfigFileName)
-  //   appDataPath = path.join(_state.appPath, _state.appDataStorePath)
-  //   appDataArchivePath = path.join(_state.appPath, _state.appDataArchivePath)
-  //   appPresentationPath = path.join(_state.appPath, _state.appPresentationPath)
-  //   appImagePath = path.join(_state.appPath, _state.appImagePath)
-  //   appPresentationConfig = path.join(appPresentationPath, _state.appPresentationConfigFileName)
-
-  //   // if needed, build the user storage directories, configs etc (on first time running the app)
-  //   isFirstTimeUser = admin.initAppDirectories()
-  //   if (!isFirstTimeUser) {
-  //     // these items are configured by the user. So get them if we have them. A first time user will be prompted
-  //     const config = JSON.parse(fs.readFileSync(appConfigPath))
-  //     _state.dataUpdateServiceURL = config.dataUrl
-  //     _state.userName = config.userName
-  //     _state.userEmail = config.email
-  //     _state.apiKey = config.apiKey
-  //     _state.adminPassword = config.adminPassword
-  //     _state.isAdmin = _state.adminPassword === _state.validAdminPassword
-  //   }
-
-  // }
-
-
-  // the first time a user launches the application we need the following in the user storage (e.g. /Users/<user>/Library/Application Support/<appName>/:
-  //  a default configuration file
-  //  a _data directory
-  //  a _presentations directory
 export interface AppInitialization {
   isFirstTimeUser: () => boolean
   initAppDirectories: () => void
+  writeConfigFileDetails: (configData: AppConfig) => void
+  initializeStateFromConfig: () => void
 }
-export let appInitialization: AppInitialization = {
-  isFirstTimeUser: (): boolean => {
-    // check if the path and config file exist.  If so, this is an existing user.
-    //  if not, is new user.
-    return (!fs.existsSync(path.join(store.state.appPath, store.state.appConfigFileName)))
-  },
-  initAppDirectories: (): void => {
-    log.info('-----------')
-    log.info('This is a new install. Creating config files and directories in the user storage')
 
-    // going to write a bunch of directories and skeleton files that the app uses throughout
-    //  goal here is to have a files that are separate from the app (app can be wiped and reinstalled if needed)
-    const appConfigPath: string = path.join(store.state.appPath, store.state.appConfigFileName)
-    const appDataPath: string = path.join(store.state.appPath, store.state.appDataStorePath)
-    const appDataArchivePath: string = path.join(store.state.appPath, store.state.appDataArchivePath)
-    const appPresentationPath: string = path.join(store.state.appPath, store.state.appPresentationPath)
-    const appImagePath: string = path.join(store.state.appPath, store.state.appImagePath)
+export interface CheckNetwork {
+  isReadyForCloud: () => boolean
+}
 
-    const appPresentationConfig = path.join(appPresentationPath, store.state.appPresentationConfigFileName)
-    const defaultAppConfig = require('@/configuration/defaultAppConfig.json')
-    const defaultPresentationFlow = require('@/configuration/defaultPresentationFlow.json')
-    const defaultPresentationConfig = require('@/configuration/defaultPresentationConfig.json')
-    fs.writeFileSync(appConfigPath, JSON.stringify(defaultAppConfig, null, '\t'), 'utf8')
 
-    // write the _data directory
-    if (!fs.existsSync(appDataPath)) {
-      fs.mkdirSync(appDataPath)
-    }
-    // write the _archive directory
-    if (!fs.existsSync(appDataArchivePath)) {
-      fs.mkdirSync(appDataArchivePath)
-    }
-    // write the _presentation directory
-    if (!fs.existsSync(appPresentationPath)) {
-      fs.mkdirSync(appPresentationPath)
-      // write the default presentation flow
-      const appDefaultPresentationFile = path.join(appPresentationPath, defaultPresentationFlow.metadata.id + '.json') // name the default file based on its UUID
-      fs.writeFileSync(appDefaultPresentationFile, JSON.stringify(defaultPresentationFlow, null, '\t'), 'utf8')
-      // write the default presentation config
-      fs.writeFileSync(appPresentationConfig, JSON.stringify(defaultPresentationConfig, null, '\t'), 'utf8')
-    }
+export function isFirstTimeUser(): boolean {
+  // check if the path and config file exist.  If so, this is an existing user.
+  //  if not, is new user.
+  return (!fs.existsSync(path.join(store.state.appPath, store.state.appConfigFileName)))
+}
 
-    // write the _images directory
-    if (!fs.existsSync(appImagePath)) {
-      fs.mkdirSync(appImagePath)
-    }
+export function initAppDirectories(): void {
+  log.info('-----------')
+  log.info('This is a new install. Creating config files and directories in the user storage')
 
+  // going to write a bunch of directories and skeleton files that the app uses throughout
+  //  goal here is to have a files that are separate from the app (app can be wiped and reinstalled if needed)
+  //  all of the paths are stored in state (.store). Getters are used to compose the paths
+  const defaultAppConfig = require('@/configuration/defaultAppConfig.json')
+  const defaultPresentationFlow = require('@/configuration/defaultPresentationFlow.json')
+  const defaultPresentationConfig = require('@/configuration/defaultPresentationConfig.json')
+
+  fs.writeFileSync(store.getters.fullAppConfigFilePath, JSON.stringify(defaultAppConfig, null, '\t'), 'utf8')
+
+  // write the _data directory
+  if (!fs.existsSync(store.getters.fullAppDataStoreDirectoryPath)) {
+    fs.mkdirSync(store.getters.fullAppDataStoreDirectoryPath)
+  }
+  // write the _archive directory
+  if (!fs.existsSync(store.getters.fullAppArchiveDirectoryPath)) {
+    fs.mkdirSync(store.getters.fullAppArchiveDirectoryPath)
+  }
+  // write the _presentation directory
+  if (!fs.existsSync(store.getters.fullAppPresentationDirectoryPath)) {
+    fs.mkdirSync(store.getters.fullAppPresentationDirectoryPath)
+    // write the default presentation flow
+    const appDefaultPresentationFile = path.join(store.getters.fullAppPresentationDirectoryPath, defaultPresentationFlow.metadata.id + '.json') // name the default file based on its UUID
+    fs.writeFileSync(appDefaultPresentationFile, JSON.stringify(defaultPresentationFlow, null, '\t'), 'utf8')
+    // write the default presentation config
+    fs.writeFileSync(store.getters.fullAppPresentationConfigFilePath, JSON.stringify(defaultPresentationConfig, null, '\t'), 'utf8')
   }
 
-//   initAppDirectories: () => {
-//     // get the config. If the config doesn't exist, we treat this as an initialization state!
-//     if (!fs.existsSync(appConfigPath)) {
-//       log.info('-----------')
-//       log.info('THIS IS A NEW INSTALL! Creating config files and directories in the user storage')
-//       log.info('-----------')
-//       const defaultAppConfig = require('@/configuration/defaultAppConfig.json')
-//       const defaultPresentationFlow = require('@/configuration/defaultPresentationFlow.json')  // _state.appDefaultPresentationFileName
-//       const defaultPresentationConfig = require('@/configuration/defaultPresentationConfig.json')
-//       fs.writeFileSync(appConfigPath, JSON.stringify(defaultAppConfig, null, '\t'), 'utf8')
+  // write the _images directory
+  if (!fs.existsSync(store.getters.fullAppImageDirectoryPath)) {
+    fs.mkdirSync(store.getters.fullAppImageDirectoryPath)
+  }
 
-//       // write the _data directory
-//       if (!fs.existsSync(appDataPath)) {
-//         fs.mkdirSync(appDataPath)
-//       }
-//       // write the _archive directory
-//       if (!fs.existsSync(appDataArchivePath)) {
-//         fs.mkdirSync(appDataArchivePath)
-//       }
-//       // write the _presentation directory
-//       if (!fs.existsSync(appPresentationPath)) {
-//         fs.mkdirSync(appPresentationPath)
-//         // write the default presentation flow
-//         const appDefaultPresentationFile = path.join(appPresentationPath, defaultPresentationFlow.metadata.id + '.json') // name the default file based on its UUID
-//         fs.writeFileSync(appDefaultPresentationFile, JSON.stringify(defaultPresentationFlow, null, '\t'), 'utf8')
-//         // write the default presentation config
-//         fs.writeFileSync(appPresentationConfig, JSON.stringify(defaultPresentationConfig, null, '\t'), 'utf8')
-//       }
+}
 
-//       // write the _images directory
-//       if (!fs.existsSync(appImagePath)) {
-//         fs.mkdirSync(appImagePath)
-//       }
+// this is called from the config tab of the admin view - to update the flat-file config with api key, user name etc
+export function writeConfigFileDetails(configData: AppConfig): void {
+  const config: AppConfig = JSON.parse(fs.readFileSync(store.getters.fullAppConfigFilePath, 'utf8'))
+  config.userName = configData.userName
+  config.userEmail = configData.userEmail
+  config.dataUrl = configData.dataUrl
+  config.apiKey = configData.apiKey
+  config.adminPassword = configData.adminPassword
+  fs.writeFileSync(store.getters.fullAppConfigFilePath, JSON.stringify(config, null, '\t'), 'utf8')
+}
 
-//       return true
-//     }
-//     return false
-//   },
+// pulling the users config into state/store
+export function initializeStateFromConfig(): void {
+  // read the config file
+  const config: AppConfig = JSON.parse(fs.readFileSync(store.getters.fullAppConfigFilePath, 'utf8'))
 
-//   // this is called from the config tab of the admin view - to update the config with api key, user name etc
-//   writeConfigFileDetails: (configData) => {  // { name:<name>, email:<email>, dataUrl:<dataUrl>, apiKey:<apiKey>  }
-//     // update local state
-//     _state.dataUpdateServiceURL = configData.dataUrl
-//     _state.apiKey = configData.apiKey
-//     _state.userName = configData.name
-//     _state.userEmail = configData.email
-//     _state.adminPassword = configData.adminPassword
+  // store key values in state
+  if (config.adminPassword && passwords.adminPassword === config.adminPassword) {
+    store.commit('setIsAdminUser', true)
+  }
 
-//     // set the admin state
-//     _state.isAdmin = _state.adminPassword === _state.validAdminPassword
+  // definitionally (because config exists), is not a first time user
+  store.commit('setIsFirstTimeUser', false)
 
-//     // update user stored config file
-//     const config = JSON.parse(fs.readFileSync(appConfigPath))
-//     config.userName = configData.name
-//     config.email = configData.email
-//     config.dataUrl = configData.dataUrl
-//     config.apiKey = configData.apiKey
-//     config.adminPassword = configData.adminPassword
-//     fs.writeFileSync(appConfigPath, JSON.stringify(config, null, '\t'), 'utf8')
-//   },
+  store.commit('setUserName', config.userName)
+  store.commit('setApiKey', config.apiKey)
+  store.commit('setUserEmail', config.userEmail)
+  store.commit('setDataUpdateServiceURL', config.dataUrl)
+  store.commit('setAdminPassword', config.adminPassword)
+}
 
-// }
 
 // export let onlineStatus = {
 //   checkForDataServer: (callback) => {
@@ -194,8 +132,17 @@ export let appInitialization: AppInitialization = {
 //       }
 //     })
 //   },
-}
 
+
+export function checkDataConnectionReady(callback: CallbackSuccessErr): void {
+  utils.checkOnlineAndDataConnectionAndApiKey(
+    store.state.dataUpdateServiceURL,
+    store.state.apiKey,
+    (success: boolean, err?: utils.ErrorObject) => {
+      callback(success, err)
+    }
+  )
+}
 
 
 

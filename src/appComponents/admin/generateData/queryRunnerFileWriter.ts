@@ -51,7 +51,9 @@ export interface QueryRunnerFileWriter {
 }
 
 export class QueryRunnerFileWriter {
+
   private sql = require('mssql')
+
   constructor(dataSource: DataSource, state: any, callback: CallbackFunc) {
 
     this.dataSource = dataSource

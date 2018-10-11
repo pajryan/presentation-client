@@ -1,6 +1,6 @@
 <template>
   <div id="admin">
-    <div class="container-fluid">
+    <div class="container-fluid adminHeader">
       <div class="row">
         <div class="col-sm">
           <h3>Presenter Admin</h3>

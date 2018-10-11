@@ -23,7 +23,7 @@ import Slideshow from '@/appComponents/Slideshow.vue'
 import TableOfContents from '@/appComponents/TableOfContents.vue'
 import log from 'electron-log'
 
-import { appInitialization } from '@/appComponents/adminFunctions.ts'
+import * as admin from '@/appComponents/admin/adminFunctions.ts'
 
 
 
@@ -41,13 +41,16 @@ export default {
     log.info('All data is stored in ' + this.appPath)
     // want to check if this is a first time user.  If so, default to the configuration tab so they can fill out required content
     //  We will check if they're first time by examining their storage directory. If it doesn't have the config file, they're new.
-    if (appInitialization.isFirstTimeUser()) {
+    if (admin.isFirstTimeUser()) {
       // build the directory structure required for the app & open the config tab in admin
       log.info('this is a first-time user. directing them to admin -> configuration')
       this.$store.commit('setIsFirstTimeUser', true)  // set state for first time user
       this.jumpToConfigTab = true                     // default to config tab
       this.$store.commit('setIsAdminShown', true)     // open the admin
-      appInitialization.initAppDirectories()          // create the directory structure and skeleton files
+      admin.initAppDirectories()          // create the directory structure and skeleton files
+    } else {
+      // exsting user
+      admin.initializeStateFromConfig()
     }
   }
 }

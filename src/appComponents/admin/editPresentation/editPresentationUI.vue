@@ -59,7 +59,7 @@
   //    those enums are defined in the #definitions section of presentationSchema.json
   //  but, since it's just JSON, i'm overwriting the definition values with the actual available items (overwriting the enum.)
   //  (I tried using external $ref in the schema, but the library uses ajax, which isn't compatible with the electron package)
-  const dataSourceConfig = require('./../generateData/dataSourceConfig.json')   // this defines what data is available
+  const dataSourceConfig = require('@/configuration/dataSourceConfig.json')   // this defines what data is available
   const validDataValues = dataSourceConfig.dataSources.map(d => d.name)         // just expose the name
   schema.definitions.dataFileValues.enum = validDataValues                      // update the definition of the schema
   // now go get an enum of components from the componentMap

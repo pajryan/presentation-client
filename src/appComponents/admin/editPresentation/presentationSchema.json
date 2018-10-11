@@ -4,7 +4,7 @@
       "enum": [
         "dataOne", 
         "dataTwo", 
-        "This entire enum array will be overwritten in editPresentationUI.vue by the `name` of the `dataSources` items in  of /adminUI/generateData/dataSourceConfig.json"
+        "This entire enum array will be overwritten in editPresentationUI.vue by the `name` of the `dataSources` items in  of /configuration/dataSourceConfig.json"
       ]
     },
     "componentsList": {

@@ -13,6 +13,7 @@ html{
   height: 100%;
   margin: 0;
   padding: 0;
+  overflow: hidden;
 }
 
 body{
@@ -24,10 +25,12 @@ body{
   font-family: 'Avenir', Helvetica, Arial, sans-serif !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
 }
 
 #app{
   height: 100%;
   margin: 0;
   padding: 0;
+  overflow: hidden;
 }
