@@ -176,11 +176,29 @@ export function getActivePresentation(): Presentation {
   return JSON.parse(fs.readFileSync(path.join(store.getters.fullAppPresentationDirectoryPath, activePresentationId + '.json'), 'utf8'))
 }
 
+
+interface PresentationItemWithIndex extends PageItem {
+  sectionIndex: number
+  pageIndex: number
+}
+interface PresentationPageWithIndex extends PresentationPage {
+  sectionIndex: number
+}
+
+// this function searches the active presentation for items of type 'component', 'mmdText', or 'image
+//  the usage is an admin user asking "I'm data and I want to know what components are in this presentation"
+//    or, "what images are used in this presentation?"
+//  So this function will look for all instances of an *item* (component or text or image)
+//    an array of objects that include item name, section number, page number: such that the user can get an answer to their question in the form:
+//     "there are three components in this presentation, the first is componentX in section1, page3"
 export function getActivePresentationItemOfType(type: PageItemTypes = PageItemTypes.component) {  // default to looking for 'component' since that's most valuable
-  // can look for 'component', 'mmdText', or 'image
   const sections: PresentationSection[] = getActivePresentation().sections
-  const pages = sections.reduce((acc: PresentationPage[], s: PresentationSection) => acc.concat(s.pages), [])
-  const pageItems = pages.reduce((acc: PageItem[], p: PresentationPage) => acc.concat(p.pageItems), [])
+  const pages: PresentationPageWithIndex[] = sections.reduce((acc: PresentationPageWithIndex[], s: PresentationSection, sectionIndex: number) => acc.concat(
+    s.pages.map((p: PresentationPage) => ({...p, sectionIndex}))
+  ), [])
+  const pageItems: PresentationItemWithIndex[] = pages.reduce((acc: PresentationItemWithIndex[], p: PresentationPageWithIndex, pageIndex: number) => acc.concat(
+    p.pageItems.map((pi: PageItem) => ({...pi, pageIndex, sectionIndex: p.sectionIndex }))
+  ), [])
   const pageItemTypes = pageItems.map((pi: PageItem) => pi.type)
   const chosenPageType = pageItemTypes.filter((pit: PageItemType) => (pit as any)[type] as PageItemType)
   return chosenPageType

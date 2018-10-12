@@ -1,27 +1,14 @@
 'use strict'
-// const sql = require('mssql').default
-// import { ConnectionPool } from 'mssql'
-// const sql = require('mssql').default
+import {DataSource, DataSourceResultHandler, DataSourceSqlParameter, Passwords} from '@/configuration/configurationTypes'
 
 import sql from 'mssql'
 import { config } from 'mssql'
-const pwd = require('../../../configuration/PASSWORDS.json')
+const pwd: Passwords = require('../../../configuration/PASSWORDS.json')
 import path from 'path'
 import fs from 'fs'
 import log from 'electron-log'
-
-// import {sql} from 'mssql'
-// const client = require('mssql/msnodesqlv8')
-// import { ConnectionPool } from 'mssql'
-
-// const Connection = require('tedious').Connection
-
-
-
 import store from '@/store'
-import {DataSource, DataSourceResultHandler, DataSourceSqlParameter} from '@/configuration/configurationTypes'
 
-// // const qa = require('./dataQualityControlScripts')
 
 // const events = require('events');
 // let ee = events.EventEmitter;
@@ -37,6 +24,7 @@ const config: config = {
   user: pwd.databaseUsername,
   password: pwd.databasePassword,
   server: pwd.databaseServer,
+  // this will be empty '', allowing access to all DBs. If I put something here, I can't access a different DB
   database: pwd.database,
 
   options: {
@@ -53,14 +41,10 @@ export class QueryRunnerFileWriter {
   rowsAffected: any       // need to type this
   recordCount: number
 
-
   constructor(dataSource: DataSource, callback: CallbackFunc) {
-
     this.dataSource = dataSource
     this.callback = callback
-
     this.filesWritten = 0
-
     this.results = []         // this is an ARRAY of ARRAYS to support multiple recordsets
     this.rowsAffected = null  // contains some metadata about row counts etc
     this.recordCount = -1
@@ -119,26 +103,6 @@ export class QueryRunnerFileWriter {
   run() {
     log.info('trying to connect with', config)
     config.database = ''
-
-
-
-
-    // const connectToSqlServer = (async (): Promise<void> => {
-    //   try {
-    //     const pool = new sql.ConnectionPool(config)
-    //     pool.connect().then(() => {
-    //         const request = new sql.Request(pool)
-    //         const result = request.query(`select * from user_admin..user_login`)
-    //         log.info('got a result', result)
-    //     })
-    //   } catch (err) {
-    //     log.info('error', err)
-    //   }
-    // })()
-
-
-
-
 
 
     const dbConn = new sql.ConnectionPool(config)
