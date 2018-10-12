@@ -101,12 +101,11 @@
             adminPassword: this.fieldAdminPassword
           }
           // save the configuration inputs to the local flat file
+          log.info('writing the following app configuration', configObj)
           admin.writeConfigFileDetails(configObj)
 
           // store config items in state
           admin.initializeStateFromConfig()
-
-          log.info('checking url', this.dataUpdateServiceURL)
 
           // now see if the data URL and API key provided actually work.
           admin.checkDataConnectionReady((res, err) => {

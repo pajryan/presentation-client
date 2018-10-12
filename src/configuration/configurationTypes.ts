@@ -22,7 +22,7 @@ export interface Presentation {
   sections: PresentationSection[]
 }
 
-interface PresentationMetadata {
+export interface PresentationMetadata {
   title: string
   version: number
   author: string
@@ -31,28 +31,47 @@ interface PresentationMetadata {
   isPublished: boolean
 }
 
-interface PresentationSection {
+export interface PresentationSection {
   title: string
   thumbnail: string             // path to image
   pages: PresentationPage[]
 }
 
-interface PresentationPage {
+export interface PresentationPage {
   title: string
   pageItems: PageItem[]
 }
 
-interface PageItem {
+export interface PageItem {
   percentWidth: number
-  type: PageItemTypes
+  type: PageItemType
 }
 
-interface PageItemTypes {
-  text?: string
-  image?: string
-  component?: string
-  data?: string[]
+// PageItem.type can be an object of {text: 'aaa'} or {image: 'bbb'} or {component: 'ccc', data: ['ddd']}
+//                                                                        ^ in this last one, data is not required (can have a component without data)
+//  not sure how to type that... but this is in the ballpark:
+// https://github.com/Microsoft/TypeScript/issues/15150#issuecomment-293610364
+interface PageItemTypeText { text: string }
+interface PageItemTypeImage { image: string }
+interface PageItemTypeComponent { component: string }
+interface PageItemTypeData { data: string }
+
+export type PageItemType = (PageItemTypeText | PageItemTypeImage | PageItemTypeComponent | PageItemTypeData) &
+                    Partial<PageItemTypeText & PageItemTypeImage & PageItemTypeComponent & PageItemTypeData>
+
+// also want to define a simple enum to type when passed as a parameter
+export enum PageItemTypes {
+  component = 'component',
+  text = 'text',
+  image = 'image'
 }
+
+// export interface PageItemType {
+//   text?: string
+//   image?: string
+//   component?: string
+//   data?: string[]
+// }
 
 
 
@@ -95,32 +114,32 @@ enum InputFieldType {
   varchar = 'varchar'
 }
 
-interface DataSource {
+export interface DataSource {
   name: string        // name of data source. this is assigned to components (so components recieve this data)
   isStoredProcedure: boolean
   query: string       // query string that is run
-  sqlParameters?: SqlParameter[]
-  resultHandling: ResultHandler[]
+  sqlParameters?: DataSourceSqlParameter[]
+  resultHandling: DataSourceResultHandler[]
 }
 
-interface SqlParameter {
+export interface DataSourceSqlParameter {
   label: string       // label that the user sees
   type: InputFieldType
   value?: string       // default value
 }
 
-interface ResultHandler {
+export interface DataSourceResultHandler {
   filename: string  // name of flatfile that gets generated (including file extension)
-  qa?: Qa
+  qa?: DataSourceQa
 }
 
-interface Qa {
-  scripts: QaScript[]
+interface DataSourceQa {
+  scripts: DataSourceQaScript[]
   asOfDateScript: string
   sparklineFields: string[]
 }
 
-interface QaScript {
+interface DataSourceQaScript {
   function: string            // name of the function
   parameters: string|number[] // parameter(s) passed to the function
 }

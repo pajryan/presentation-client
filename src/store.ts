@@ -16,6 +16,9 @@ export default new Vuex.Store({
     isAdminShown: true,
     isFirstTimeUser: false,
 
+    // the json representation of the active presentionat
+    activePresentation: {},
+
     // This is where ALL data will be stored (user data as well as data driving pictures )
     //  note that for full paths, use the getters below
     appPath: remote.app.getPath('userData'),
@@ -27,6 +30,7 @@ export default new Vuex.Store({
     appPresentationConfigFileName: '_presentationConfig.json',
     appConfigFileName: '_appConfig.json',
 
+    // items stored in _appConfig.json
     userName: '',
     apiKey: '',
     userEmail: '',
@@ -43,6 +47,10 @@ export default new Vuex.Store({
     },
     setIsFirstTimeUser(state, isFirstTimeUser) {
       state.isFirstTimeUser = isFirstTimeUser
+    },
+
+    setActivePresentation(state, activePresentation) {
+      state.activePresentation = activePresentation
     },
 
     setUserName(state, userName) {

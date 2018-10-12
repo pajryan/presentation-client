@@ -1,16 +1,18 @@
 'use strict'
 
 /**
- * THIS FILE contains a bunch of utility functions that are called throughout the app.  It follows these rules:
- *  - nothing here directly alters app state at all. The individual components are responsible for that
- *  - however, this will post/get from the update server. So the state of the SERVER may change.
+ * THIS FILE contains a bunch of utility functions that are called throughout the app.  It does two key things
+ *  - updates state depending on user actions
+ *  - updates the local storage with data/config etc
+ *  - updates the cloud storage with data/config etc
  */
 
 import path from 'path'
 import fs from 'fs'
 import store from '@/store'
 
-import {AppConfig, Passwords} from '@/configuration/configurationTypes'
+import {AppConfig, Passwords,
+        Presentation, PresentationConfig, PresentationSection, PresentationPage, PageItem, PageItemType, PageItemTypes} from '@/configuration/configurationTypes'
 
 const unzipper = require('unzipper')
 
@@ -121,17 +123,6 @@ export function initializeStateFromConfig(): void {
 }
 
 
-// export let onlineStatus = {
-//   checkForDataServer: (callback) => {
-//     utils.checkOnlineAndDataConnectionAndApiKey(_state.dataUpdateServiceURL, _state.apiKey, (online, err) => {
-//       if (online) {
-//         callback({status: 200})
-//       } else {
-//         log.error('could not connect to data provider', err)
-//         callback(null, {error: err})
-//       }
-//     })
-//   },
 
 
 export function checkDataConnectionReady(callback: CallbackSuccessErr): void {
@@ -152,7 +143,6 @@ export function checkDataConnectionReady(callback: CallbackSuccessErr): void {
     - the online web-update service (same service as data update, just different endpoints)
     - the local user storage.  When displaying existing presentations, this is where we pull from
 */
-export let presentationManagement = {
 
   // getPresentations: () => {
   //   // get a list of all presentations available
@@ -176,36 +166,36 @@ export let presentationManagement = {
   //   return presentations
   // },
 
-  // getActivePresentationId: () => {
-  //   const presentationConfig = JSON.parse(fs.readFileSync(appPresentationConfig))
-  //   return presentationConfig.activePresentation
-  // },
+export function getActivePresentationId(): string {
+  const presentationConfig: PresentationConfig = JSON.parse(fs.readFileSync(store.getters.fullAppPresentationConfigFilePath, 'utf8'))
+  return presentationConfig.activePresentation
+}
 
-  // getActivePresentation: () => {
-  //   const activePresentationId = admin.getActivePresentationId()
-  //   return JSON.parse(fs.readFileSync(path.join(appPresentationPath, activePresentationId + '.json')))
-  // },
+export function getActivePresentation(): Presentation {
+  const activePresentationId: string = getActivePresentationId()
+  return JSON.parse(fs.readFileSync(path.join(store.getters.fullAppPresentationDirectoryPath, activePresentationId + '.json'), 'utf8'))
+}
 
-  // getActivePresentationItemOfType: (type= 'component') => {
-  //   // can look for 'component', 'mmdText', or 'image
-  //   const sections = this.getActivePresentation().presentation.sections
-  //   const pages = sections.reduce((acc, s) => acc.concat(s.pages), [])
-  //   const pageItems = pages.reduce((acc, p) => acc.concat(p.pageItems), [])
-  //   const pageItemTypes = pageItems.map(pi => pi.type)
-  //   const chosenPageType = pageItemTypes.filter(pit => pit[type])
-  //   return chosenPageType
-  // },
+export function getActivePresentationItemOfType(type: PageItemTypes = PageItemTypes.component) {  // default to looking for 'component' since that's most valuable
+  // can look for 'component', 'mmdText', or 'image
+  const sections: PresentationSection[] = getActivePresentation().sections
+  const pages = sections.reduce((acc: PresentationPage[], s: PresentationSection) => acc.concat(s.pages), [])
+  const pageItems = pages.reduce((acc: PageItem[], p: PresentationPage) => acc.concat(p.pageItems), [])
+  const pageItemTypes = pageItems.map((pi: PageItem) => pi.type)
+  const chosenPageType = pageItemTypes.filter((pit: PageItemType) => (pit as any)[type] as PageItemType)
+  return chosenPageType
+}
 
-  // setActivePresentation: (id) => {
-  //   const presentationConfig = JSON.parse(fs.readFileSync(appPresentationConfig))
-  //   presentationConfig.activePresentation = id
-  //   fs.writeFileSync(appPresentationConfig, JSON.stringify(presentationConfig, null, '\t'), 'utf8')
-  //   _state.activePresentation = this.getActivePresentation()
-  // },
+export function setActivePresentation(id: string) {
+  const presentationConfig: PresentationConfig = JSON.parse(fs.readFileSync(store.getters.fullAppPresentationConfigFilePath, 'utf8'))
+  presentationConfig.activePresentation = id
+  fs.writeFileSync(store.getters.fullAppPresentationConfigFilePath, JSON.stringify(presentationConfig, null, '\t'), 'utf8')
+  store.commit('setActivePresentation', getActivePresentation())
+}
 
-  // getPresentationById: (id) => {
-  //   return JSON.parse(fs.readFileSync(path.join(appPresentationPath, id + '.json')))
-  // },
+export function getPresentationById(id: string): Presentation {
+  return JSON.parse(fs.readFileSync(path.join(store.getters.fullAppPresentationDirectoryPath, id + '.json'), 'utf8'))
+}
 
   // duplicatePresentation: (id) => {
   //   const newPresentation = admin.getPresentationById(id)
@@ -337,7 +327,6 @@ export let presentationManagement = {
   //   })
   // },
 
-}
 
 /*
   IMAGE MANAGEMENT ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

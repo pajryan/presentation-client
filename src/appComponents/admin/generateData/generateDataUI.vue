@@ -83,24 +83,24 @@
 
 <script>
   import Vue from 'vue'
+  import {mapGetters} from 'vuex'
+  import * as admin from '@/appComponents/admin/adminFunctions.ts'
   import dataSourceConfig from '@/configuration/dataSourceConfig.json'
   import dataSourceConfigSchema from '@/configuration/dataSourceConfigSchema.json'
-  const queryRunnerFileWriter = require('./queryRunnerFileWriter.ts')
+  import {QueryRunnerFileWriter} from '@/appComponents/admin/generateData/queryRunnerFileWriter.ts'
   import log from 'electron-log'
   import jquery from 'jquery'
   const $ = jquery
   import 'bootstrap-datepicker'
+
 
   import path from 'path'
 
   const validate = require('jsonschema').validate
 
   export default {
-    props: ['adminObj'],
-
     data() {
       return {
-        shown: false,
         globalInputs: dataSourceConfig.globalInputs,
         dataSources: dataSourceConfig.dataSources,
         runAllQueriesCount: 0,
@@ -109,9 +109,13 @@
         activePresentationComponents: []
       }
     },
+    computed: {
+      ...mapGetters({
+          fullAppDataStoreDirectoryPath: 'fullAppDataStoreDirectoryPath'
+        })
+    },
     mounted() {
       // be sure the dataSourceConfig validates
-      log.info('VALIDATION', validate(dataSourceConfig, dataSourceConfigSchema))
       this.dataConfigValidationErrors = validate(dataSourceConfig, dataSourceConfigSchema).errors
 
       this.dataSources.forEach(d => {
@@ -123,7 +127,6 @@
         Vue.set(d, 'successMsg', null)
         Vue.set(d, 'errorMsg', null)
         Vue.set(d, 'isExpanded', false)
-
       })
 
       // build the datepickers (https://uxsolutions.github.io/bootstrap-datepicker/)
@@ -135,7 +138,7 @@
       })
 
       // capture the components used in the active presentation. We'll try to open these up later.
-      this.activePresentationComponents = this.adminObj.getActivePresentationItemOfType('component')
+      this.activePresentationComponents = admin.getActivePresentationItemOfType('component')
 
     },
 
@@ -143,35 +146,30 @@
     methods: {
       /*
         Important Note:
-          Because some data might be quite large, I'm NOT going to return results here (just metadata)
-          Instead, will STREAM the result of the query straight to a file.  This makes things a little harder to debug, but will ultimately be required due to the data
+          Some data has the potential to be quite large. It's tempting to just manage large data by streaming directly to a file.
+          However, the issue will simply arise later when trying to *load* that data to a component.
 
-          Hang on... problem: if the files are too big to write - how will I be able to read them to generate a picture ..?
-          Maybe I should deal with file size HERE rather than in the various components that consume files...
-
-          OK - going with this for now: will return results here as a json object and write to a file.
-          It's simpler, and forces me to deal with file-size (memory) issues when I create the file (thereby not having to deal with it when I consume the files)
+          So this dataGeneration WILL bring the data into memory (json object), then write that object to a file
+          This allows me to capture "large data request problems" *here* rather than when a user tries to render that same data
       */
       queryAndWriteOneDataSource(dataSource, callback = this.runResult) {
         dataSource.isRunning = true
         dataSource.attempted = true
         dataSource.successMsg = null
         dataSource.errorMsg = null
-        log.info('running dataSource with', dataSource)
-        const qr = new queryRunnerFileWriter(dataSource, this.adminObj.state(), callback)
+        const qr = new QueryRunnerFileWriter(dataSource, callback)
       },
 
       // probably don't want to actually return all the results... could be huge
       runResult(result, dataSource) { // result is an object of {success:true, results:..., filesWritten:...} or {success:false, err: error}
         dataSource.isRunning = false
-        log.info('datasource', dataSource)
         // we get here even if we've had an error. So check that the error message hasn't already been populated
         if (result.success && dataSource.errorMsg == null) {
           dataSource.succeeded = true
           dataSource.successMsg = 'received ' + result.result.length + ' record set(s), with a total of ' + result.result.reduce((p, c) => p + c) + ' records. Wrote ' + result.filesWritten + ' file(s) '
           dataSource.resultHandling.forEach(rh => {
             const filename = rh.filename
-            dataSource.successMsg += ' : <a href="file://' + path.join(this.adminObj.getAppDataPath(), filename) + '" target="_blank">' + filename + '</a> '
+            dataSource.successMsg += ' : <a href="file://' + path.join(this.fullAppDataStoreDirectoryPath, filename) + '" target="_blank">' + filename + '</a> '
           })
         } else if (result.error != null) {
           dataSource.errorMsg = 'error: ' + result.error

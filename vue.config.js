@@ -13,5 +13,10 @@ module.exports = {
         path.resolve(__dirname, './src/assets/css/tableOfContents.scss')
       ]
     }
+  },
+  configureWebpack: {
+    externals: {
+      "mssql": "require('mssql')" // this solves the nasty __webpack__ require (...) error
+    }
   }
 }

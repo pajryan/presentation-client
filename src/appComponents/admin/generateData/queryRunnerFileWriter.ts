@@ -3,12 +3,24 @@
 // import { ConnectionPool } from 'mssql'
 // const sql = require('mssql').default
 
-// import sql from 'mssql'
+import sql from 'mssql'
 import { config } from 'mssql'
 const pwd = require('../../../configuration/PASSWORDS.json')
 import path from 'path'
 import fs from 'fs'
 import log from 'electron-log'
+
+// import {sql} from 'mssql'
+// const client = require('mssql/msnodesqlv8')
+// import { ConnectionPool } from 'mssql'
+
+// const Connection = require('tedious').Connection
+
+
+
+import store from '@/store'
+import {DataSource, DataSourceResultHandler, DataSourceSqlParameter} from '@/configuration/configurationTypes'
+
 // // const qa = require('./dataQualityControlScripts')
 
 // const events = require('events');
@@ -32,37 +44,24 @@ const config: config = {
   }
 }
 
-interface DataSource {
-  isStoredProcedure: boolean
-  sqlString: string
-  sqlParameters: any[]
-  resultHandling: any[]
-}
-
-export interface QueryRunnerFileWriter {
-  dataSource: DataSource
-  _state: any
-  callback: CallbackFunc
-  filesWritten: number
-  results: any[]
-  rowsAffected: any
-  recordCount: number
-
-}
-
 export class QueryRunnerFileWriter {
 
-  private sql = require('mssql')
+  dataSource: DataSource
+  callback: CallbackFunc
+  filesWritten: number
+  results: any[]          // need to type this
+  rowsAffected: any       // need to type this
+  recordCount: number
 
-  constructor(dataSource: DataSource, state: any, callback: CallbackFunc) {
+
+  constructor(dataSource: DataSource, callback: CallbackFunc) {
 
     this.dataSource = dataSource
-    this._state = state
     this.callback = callback
 
     this.filesWritten = 0
 
-    this.results = []  // this is an ARRAY of ARRAYS to support multiple recordsets
+    this.results = []         // this is an ARRAY of ARRAYS to support multiple recordsets
     this.rowsAffected = null  // contains some metadata about row counts etc
     this.recordCount = -1
 
@@ -70,7 +69,7 @@ export class QueryRunnerFileWriter {
   }
 
   // iteratively write each file (asynchronous, but doing one at a time.)
-  writeAllFiles(currFileIndex = this.filesWritten) {
+  writeAllFiles(currFileIndex: number = this.filesWritten) {
     const filename = this.dataSource.resultHandling[currFileIndex].filename
     this.writeOneFile(this.results[currFileIndex], filename, (err: any) => {
       if (err) {
@@ -99,16 +98,12 @@ export class QueryRunnerFileWriter {
   // write one file
   writeOneFile(data: any, filename: string, fileCallback: (err?: any) => void) {
     // going to write straight to my own _data directory (so that pictures are immediately updated)
-    // might want to consider providing a way to backup existing data? (If I do that, I might as well expose it to the user so they can backup before updating their data??)
-
-    const appDataPath = path.join(this._state.appPath, this._state.appDataStorePath)
-
     if (!filename) {
       log.error('Error writing data file. Got results, but found no filename. Maybe this returned more results than expected?.  Check this: ', this.dataSource)
       fileCallback('Error writing data file. Got results, but found no filename')
     }
 
-    fs.writeFile(path.join(appDataPath, filename), JSON.stringify(data, null, '\t'), (err: any) => {
+    fs.writeFile(path.join(store.getters.fullAppDataStoreDirectoryPath, filename), JSON.stringify(data, null, '\t'), (err: any) => {
       if (err) {
         log.error('error writing file ' + filename, err)
         fileCallback(err)
@@ -122,23 +117,50 @@ export class QueryRunnerFileWriter {
 
   // run the query
   run() {
-    const dbConn = new this.sql.ConnectionPool(config)
-    dbConn.connect((err: any) => {
+    log.info('trying to connect with', config)
+    config.database = ''
 
-      const request = new this.sql.Request()
+
+
+
+    // const connectToSqlServer = (async (): Promise<void> => {
+    //   try {
+    //     const pool = new sql.ConnectionPool(config)
+    //     pool.connect().then(() => {
+    //         const request = new sql.Request(pool)
+    //         const result = request.query(`select * from user_admin..user_login`)
+    //         log.info('got a result', result)
+    //     })
+    //   } catch (err) {
+    //     log.info('error', err)
+    //   }
+    // })()
+
+
+
+
+
+
+    const dbConn = new sql.ConnectionPool(config)
+    dbConn.connect((err: any) => {
+      const request = new sql.Request(dbConn)
       request.stream = true               // You can set streaming differently for each request
 
       // stored procedure
       if (this.dataSource.isStoredProcedure) {
         log.error('TODO, need to handle parameters to SP.')
-        request.execute(this.dataSource.sqlString)
+        request.execute(this.dataSource.query)
+
       } else {
-        let sqlstring = this.dataSource.sqlString
+        let sqlstring: string = this.dataSource.query
         // parameters
-        this.dataSource.sqlParameters.forEach((p, i) => {
-          const paramReplace = '{' + (i + 1) + '}'
-          sqlstring = sqlstring.replace(paramReplace, p.value)
-        })
+        if (this.dataSource.sqlParameters) {
+          this.dataSource.sqlParameters.forEach((p: DataSourceSqlParameter, i: number) => {
+            const paramReplace = '{' + (i + 1) + '}'
+            sqlstring = sqlstring.replace(paramReplace, p.value || '')
+          })
+        }
+        log.info('running query', sqlstring)
         request.query(sqlstring)
       }
 
@@ -174,9 +196,9 @@ export class QueryRunnerFileWriter {
         request.removeListener('done', onDone)
 
         log.log('---------------------')
-        log.log('events on request', request.eventNames())
+        // log.log('events on request', request.eventNames())
 
-        this.sql.close()
+        dbConn.close()
         // sql.removeListener('error', onSqlError);
 
         // console.log('result', this.results ) // careful showing the results. Can massively slow the app.
@@ -190,15 +212,15 @@ export class QueryRunnerFileWriter {
     })
 
     const onSqlError = (err: any) => {
-      this.sql.close()
-      this.sql.removeListener('error', onSqlError)
+      dbConn.close()
+      dbConn.removeListener('error', onSqlError)
       log.error('Error running sql query.', this.dataSource, err)
       this.callback(
         {success: false, error: err},
         this.dataSource
       )
     }
-    this.sql.on('error', onSqlError)
+    dbConn.on('error', onSqlError)
 
 
   }

@@ -135,10 +135,8 @@ export function checkIfHaveValidApiKey(dataUrl: string, apiKey: string, callback
 
 export function checkOnlineAndDataConnectionAndApiKey(dataUrl: string, apiKey: string, callback: CallbackSuccessErr) {
   checkIfOnline((online: boolean) => {
-    log.info('am online?', online)
     if (online) {
       checkIfHaveDataConnection(dataUrl, (dataConnected: boolean) => {
-        log.info('am dataConnected?', dataConnected)
         if (dataConnected) {
           checkIfHaveValidApiKey(dataUrl, apiKey, (apiAccepted: boolean, err: any) => {
             if (apiAccepted) {
