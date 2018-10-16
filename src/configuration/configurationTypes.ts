@@ -56,15 +56,24 @@ interface PageItemTypeImage { image: string }
 interface PageItemTypeComponent { component: string }
 interface PageItemTypeData { data: string }
 
-export type PageItemType = (PageItemTypeText | PageItemTypeImage | PageItemTypeComponent | PageItemTypeData) &
-                    Partial<PageItemTypeText & PageItemTypeImage & PageItemTypeComponent & PageItemTypeData>
+export interface PageItemType {
+  text?: string
+  image?: string
+  component?: string
+  data?: string
+}
+
+// export type PageItemType = (PageItemTypeText | PageItemTypeImage | PageItemTypeComponent | PageItemTypeData) &
+//                     Partial<PageItemTypeText & PageItemTypeImage & PageItemTypeComponent & PageItemTypeData>
 
 // also want to define a simple enum to type when passed as a parameter
-export enum PageItemTypes {
-  component = 'component',
-  text = 'text',
-  image = 'image'
-}
+export type PageItemTypes = 'component' | 'text' | 'image'
+
+// export enum PageItemTypes {
+//   component = 'component',
+//   text = 'text',
+//   image = 'image'
+// }
 
 // export interface PageItemType {
 //   text?: string
@@ -96,8 +105,13 @@ export interface Passwords {
 /**************************************/
 // dataSourceConfig
 export interface DataSourceConfig {
+  metadata: DataSourceMetadata
   globalInputs: DataSourceConfigGlobalInput[]
   dataSources: DataSource[]
+}
+
+interface DataSourceMetadata {
+  dbDateFormat: string // this is the D3 format string used to parse dates from the DB. (e.g. d3.utcParse("%Y-%m-%dT%H:%M:%S.%LZ") )
 }
 
 interface DataSourceConfigGlobalInput {
@@ -133,13 +147,25 @@ export interface DataSourceResultHandler {
   qa?: DataSourceQa
 }
 
-interface DataSourceQa {
+export interface DataSourceQa {
+  sparkPlusMetadataOnFields: string[]
+  asOfDateField: string
   scripts: DataSourceQaScript[]
-  asOfDateScript: string
-  sparklineFields: string[]
 }
 
 interface DataSourceQaScript {
   function: string            // name of the function
   parameters: string|number[] // parameter(s) passed to the function
 }
+
+export interface SparkPlusMetadataOnFieldsResult {
+  fieldName: string
+  sparklineSvg: HTMLElement
+  histogramSvg: HTMLElement
+  medianValue: number
+  minValue: number
+  maxValue: number
+  latestValue: number
+  endDate: Date
+}
+

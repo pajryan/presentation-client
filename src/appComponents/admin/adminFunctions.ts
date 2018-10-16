@@ -12,7 +12,7 @@ import fs from 'fs'
 import store from '@/store'
 
 import {AppConfig, Passwords,
-        Presentation, PresentationConfig, PresentationSection, PresentationPage, PageItem, PageItemType, PageItemTypes} from '@/configuration/configurationTypes'
+        Presentation, PresentationConfig, PresentationSection, PresentationPage, PageItem, PageItemTypes} from '@/configuration/configurationTypes'
 
 const unzipper = require('unzipper')
 
@@ -177,7 +177,7 @@ export function getActivePresentation(): Presentation {
 }
 
 
-interface PresentationItemWithIndex extends PageItem {
+interface PageItemWithIndex extends PageItem {
   sectionIndex: number
   pageIndex: number
 }
@@ -191,16 +191,18 @@ interface PresentationPageWithIndex extends PresentationPage {
 //  So this function will look for all instances of an *item* (component or text or image)
 //    an array of objects that include item name, section number, page number: such that the user can get an answer to their question in the form:
 //     "there are three components in this presentation, the first is componentX in section1, page3"
-export function getActivePresentationItemOfType(type: PageItemTypes = PageItemTypes.component) {  // default to looking for 'component' since that's most valuable
+export function getActivePresentationItemOfType(passedType: PageItemTypes = 'component') {  // default to looking for 'component' since that's most valuable
   const sections: PresentationSection[] = getActivePresentation().sections
+  // create array of pages, keeping track of what section (index) the page came from
   const pages: PresentationPageWithIndex[] = sections.reduce((acc: PresentationPageWithIndex[], s: PresentationSection, sectionIndex: number) => acc.concat(
     s.pages.map((p: PresentationPage) => ({...p, sectionIndex}))
   ), [])
-  const pageItems: PresentationItemWithIndex[] = pages.reduce((acc: PresentationItemWithIndex[], p: PresentationPageWithIndex, pageIndex: number) => acc.concat(
+  // create array of pageItems, keeping track of what section and page the item came from
+  const pageItems: PageItemWithIndex[] = pages.reduce((acc: PageItemWithIndex[], p: PresentationPageWithIndex, pageIndex: number) => acc.concat(
     p.pageItems.map((pi: PageItem) => ({...pi, pageIndex, sectionIndex: p.sectionIndex }))
   ), [])
-  const pageItemTypes = pageItems.map((pi: PageItem) => pi.type)
-  const chosenPageType = pageItemTypes.filter((pit: PageItemType) => (pit as any)[type] as PageItemType)
+  // return only those pageItems that match the type passed
+  const chosenPageType = pageItems.filter((pit: PageItemWithIndex) => passedType in pit.type)
   return chosenPageType
 }
 

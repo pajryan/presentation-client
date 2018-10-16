@@ -40,6 +40,7 @@ export class QueryRunnerFileWriter {
   results: any[]          // need to type this
   rowsAffected: any       // need to type this
   recordCount: number
+  hitError: boolean
 
   constructor(dataSource: DataSource, callback: CallbackFunc) {
     this.dataSource = dataSource
@@ -48,6 +49,7 @@ export class QueryRunnerFileWriter {
     this.results = []         // this is an ARRAY of ARRAYS to support multiple recordsets
     this.rowsAffected = null  // contains some metadata about row counts etc
     this.recordCount = -1
+    this.hitError = false
 
     this.run()
   }
@@ -101,9 +103,7 @@ export class QueryRunnerFileWriter {
 
   // run the query
   run() {
-    log.info('trying to connect with', config)
     config.database = ''
-
 
     const dbConn = new sql.ConnectionPool(config)
     dbConn.connect((err: any) => {
@@ -113,6 +113,7 @@ export class QueryRunnerFileWriter {
       // stored procedure
       if (this.dataSource.isStoredProcedure) {
         log.error('TODO, need to handle parameters to SP.')
+        // log.info('running stored procedure', this.dataSource.query)
         request.execute(this.dataSource.query)
 
       } else {
@@ -124,7 +125,7 @@ export class QueryRunnerFileWriter {
             sqlstring = sqlstring.replace(paramReplace, p.value || '')
           })
         }
-        log.info('running query', sqlstring)
+        // log.info('running query', sqlstring)
         request.query(sqlstring)
       }
 
@@ -146,6 +147,7 @@ export class QueryRunnerFileWriter {
         // request.removeListener('error', onError);
         // request.removeListener('done', onDone);
         // sql.removeListener('error', onSqlError);
+        this.hitError = true
         this.callback(
           {success: false, error: err2},
           this.dataSource
@@ -158,17 +160,15 @@ export class QueryRunnerFileWriter {
         request.removeListener('row', onRow)
         request.removeListener('error', onError)
         request.removeListener('done', onDone)
-
-        log.log('---------------------')
         // log.log('events on request', request.eventNames())
-
         dbConn.close()
         // sql.removeListener('error', onSqlError);
-
         // console.log('result', this.results ) // careful showing the results. Can massively slow the app.
         // write the results to a file
         this.rowsAffected = result.rowsAffected
-        this.writeAllFiles()
+        if (!this.hitError) {
+          this.writeAllFiles()
+        }
       }
       request.on('done', onDone)
 

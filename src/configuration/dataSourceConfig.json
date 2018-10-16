@@ -1,4 +1,8 @@
 {
+  "metadata": {
+    "dbDateFormat": "%Y-%m-%dT%H:%M:%S.%LZ"
+  },
+
   "globalInputs":[
     {
       "referenceId": "globalAsOfDate",
@@ -9,6 +13,18 @@
   ],
   
   "dataSources" : [
+    {
+      "name": "Current date",
+      "isStoredProcedure": false,
+      "query": "select getdate() as currentDate",
+      "sqlParameters": [],
+      "resultHandling": [
+        {
+          "filename": "currentDate.json",
+          "qa": {}
+        }
+      ]
+    },
     {
       "name": "DoubleNumber",
       "isStoredProcedure": false,
@@ -25,7 +41,6 @@
           "filename": "DoubleNumber.json",
           "qa": {
             "scripts": [],
-            "asOfDateScript": "maxDate(date)",
             "chart": null
           }
         }
@@ -55,17 +70,13 @@
             "scripts": [
               {"function": "findMedian", "parameters": ["passedValue"]},
               {"function": "findMedian", "parameters": ["passedValue"]}
-            ],
-            "asOfDateScript": "maxDate(date)",
-            "sparklineFields": ["passedValue"]
+            ]
           }
         },
         {
           "filename": "DoubleNumberFile.json",
           "qa": {
-            "scripts": [],
-            "asOfDateScript": "maxDate(date)",
-            "chart": null
+            "scripts": []
           }
         }
         
@@ -82,7 +93,7 @@
           "filename": "BrokerLiquidity.json",
           "qa": {
             "scripts": [],
-            "asOfDateScript": "maxDate(date)",
+            "asOfDateField": "date",
             "chart": null
           }
         }
@@ -93,18 +104,29 @@
       "name": "RiskPremium",
       "notes": "Provides DP, market spread and expected loss over time",
       "isStoredProcedure": false,
-      "query": "select convert(VARCHAR(10),price_date,101) as date, dp1 as dp, spread as marketSpread, expected_loss as expectedLossSpread from macro..expected_loss order by price_date",
+      "query": "select price_date as date, dp1 as dp, spread as marketSpread, expected_loss as expectedLossSpread from macro..expected_loss order by price_date; select price_date as date, dp1 as dp, spread as marketSpread, expected_loss as expectedLossSpread from macro..expected_loss order by price_date",
       "sqlParameters": [],
       "resultHandling": [
         {
           "filename": "RiskPremium.json",
           "qa": {
+            "sparkPlusMetadataOnFields": ["dp", "marketSpread"],
+            "asOfDateField": "date",
             "scripts": [
-              {"function": "findMedian", "parameters": ["dp"]},
-              {"function": "findMedian", "parameters": ["marketSpread"]}
-            ],
-            "asOfDateScript": "maxDate(date)",
-            "sparklineFields": ["marketSpread","dp"]
+              {"function": "findMax", "parameters": ["dp"]},
+              {"function": "findMedian", "parameters": ["marketSpread"]},
+              {"function": "makeSparkline", "parameters": ["marketSpread"]}
+            ]
+          }
+        },
+        {
+          "filename": "RiskPremium2.json",
+          "qa": {
+            "sparkPlusMetadataOnFields": ["expectedLossSpread"],
+            "asOfDateField": "date",
+            "scripts": [
+              {"function": "findMin", "parameters": ["expectedLossSpread"]}
+            ]
           }
         }
       ]
@@ -132,7 +154,6 @@
           "filename": "TestUserName1.json",
           "qa": {
             "scripts": [],
-            "asOfDateScript": "",
             "chart": null
           }
         },
@@ -140,7 +161,6 @@
           "filename": "TestUserName2.json",
           "qa": {
             "scripts": [],
-            "asOfDateScript": "",
             "chart": null
           }
         }

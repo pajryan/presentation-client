@@ -79,6 +79,14 @@
           "qa": {
             "type": "object",
             "properties": {
+              "sparkPlusMetadataOnFields": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "title": "name of DB column to be plotted in a sparkline",
+                  "default": ""
+                }
+              },
               "scripts": {
                 "type": "array",
                 "items": {
@@ -100,18 +108,10 @@
                   }
                 }
               },
-              "asOfDateScript": {
+              "asOfDateField": {
                 "type": "string",
                 "title": "script run to determine the end-date of the data",
                 "default": ""
-              },
-              "sparklineFields": {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "title": "name of DB column to be plotted in a sparkline",
-                  "default": ""
-                }
               }
             }
             
@@ -132,6 +132,15 @@
     "dataSources"
   ],
   "properties": {
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "dbDateFormat":{
+          "type": "string"
+        }
+      }
+    },
+
     "globalInputs": {
       "type": "array",
       "title": "Global Inputs",

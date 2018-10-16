@@ -23,8 +23,8 @@ import Vue from 'vue'
 const path = require('path');
 const fs = require('fs')
 
-let componentMap = require('../components/_componentMap');  // this draws in ALL components
-let dataSourceConfig = require('./../admin/adminUI/generateData/dataSourceConfig')
+let componentMap = require('@/pageComponents/_componentMap');  // this draws in ALL components
+let dataSourceConfig = require('@/configuration/dataSourceConfig')
 
 export function build(itm, uiElem, _state){
   // get the right component

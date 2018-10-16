@@ -45,31 +45,50 @@
           &nbsp;&nbsp;
           <button type="button" class="btn btn-primary btn-sm" @click="queryAndWriteAllDataSources()" :disabled="isRunningAllQueries" >run everything</button>
         </h4>
+          <div class="progress" style="margin-bottom: 30px;">
+            <div id="generateDataProgressBarSuccess" class="progress-bar progress-bar-striped  bg-success progress-bar-animated" role="progressbar" :style="{width: dataUpdateProgressSuccess + '%'}" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
+            <div id="generateDataProgressBarFail" class="progress-bar progress-bar-striped  bg-danger progress-bar-animated" role="progressbar" :style="{width: dataUpdateProgressFail + '%'}" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
+          </div>
+        
         
         <div v-for="dataSource in dataSources" class="dataSource"  :key="dataSource.index">
+          <GenerateDataForOneDataSourceUI 
+            :itemDataSourceConfig="dataSource"
+            :showOtherComponentsThatUseThisData = "true"
+            :autoRun = "runDataSource"
+            v-on:dataRunComplete = "oneDataRunComplete"
+          />
+            <!-- props: ['componentIndex', 'itemDataSourceConfig', 'showOtherComponentsThatUseThisData', 'adminObj', 'pageItems', 'state'],  -->
+
+
+
+
+         <!-- 
           <button type="button" class="btn btn-primary btn-sm" @click="queryAndWriteOneDataSource(dataSource)" :disabled="dataSource.isRunning">run</button>
           <label>{{ dataSource.name }}</label>
-          <!-- messages -->
+          < !- - messages - - >
           <label :hidden="dataSource.successMsg==null"  class="alert alert-success"><span v-html="dataSource.successMsg"></span></label>
           <label :hidden="dataSource.errorMsg==null"  class="alert alert-danger">{{ dataSource.errorMsg }}</label>
-          <!-- parameters -->
+          < !- - parameters - - >
           <div v-for="parameter in dataSource.sqlParameters" class="dataSourceParameter"  :key="parameter.index">
             <label>{{ parameter.label }}</label>
             <input v-model="parameter.value" />
           </div>
-          <!-- components that use this dataSource -->
+          < !- - components that use this dataSource - - >
           <p class="relatedComponentsLink" @click="dataSource.isExpanded = !dataSource.isExpanded">show/hide related components</p>
           <div v-if="dataSource.isExpanded" class="relatedComponents alert alert-primary">
             Components <b>in the active presentation</b> that use this data:
-            <ol v-if="activePresentationComponents.filter(c => c.data.find(f => f===dataSource.name)).length>0">
-              <li v-for="component in activePresentationComponents.filter(c => c.data.find(f => f===dataSource.name))" :key="component.index">
-                {{component.component}}
+            <ol v-if="activePresentationComponents.filter(c => c.type.data.find(f => f===dataSource.name)).length>0">
+              <li v-for="component in activePresentationComponents.filter(c => c.type.data.find(f => f===dataSource.name))" :key="component.index">
+                {{component.type.component}} (section {{component.sectionIndex + 1}}, page {{component.pageIndex + 1}})
               </li>
             </ol>
             <ul v-else>
               <li><i>none found. (but could be in other presentations!)</i></li>
             </ul>
           </div>
+        -->
+
           
         </div>
       </div>
@@ -84,10 +103,12 @@
 <script>
   import Vue from 'vue'
   import {mapGetters} from 'vuex'
-  import * as admin from '@/appComponents/admin/adminFunctions.ts'
+  // import * as admin from '@/appComponents/admin/adminFunctions.ts'
   import dataSourceConfig from '@/configuration/dataSourceConfig.json'
   import dataSourceConfigSchema from '@/configuration/dataSourceConfigSchema.json'
-  import {QueryRunnerFileWriter} from '@/appComponents/admin/generateData/queryRunnerFileWriter.ts'
+  // import {QueryRunnerFileWriter} from '@/appComponents/admin/generateData/queryRunnerFileWriter.ts'
+  import GenerateDataForOneDataSourceUI from './generateDataForOneDataSourceUI.vue'
+
   import log from 'electron-log'
   import jquery from 'jquery'
   const $ = jquery
@@ -95,18 +116,26 @@
 
 
   import path from 'path'
+  import { setTimeout } from 'timers'
 
   const validate = require('jsonschema').validate
 
   export default {
+    components: {
+      GenerateDataForOneDataSourceUI
+    },
     data() {
       return {
         globalInputs: dataSourceConfig.globalInputs,
         dataSources: dataSourceConfig.dataSources,
-        runAllQueriesCount: 0,
         isRunningAllQueries: false,
         dataConfigValidationErrors: [],
-        activePresentationComponents: []
+        runDataSource: false,
+        runAllQueriesCount: 0,
+        runAllQueriesSuccessCount: 0,
+        runAllQueriesFailCount: 0,
+        dataUpdateProgressSuccess: 0,
+        dataUpdateProgressFail: 0
       }
     },
     computed: {
@@ -137,70 +166,67 @@
         todayBtn: 'linked'
       })
 
-      // capture the components used in the active presentation. We'll try to open these up later.
-      this.activePresentationComponents = admin.getActivePresentationItemOfType('component')
-
     },
 
 
     methods: {
-      /*
-        Important Note:
-          Some data has the potential to be quite large. It's tempting to just manage large data by streaming directly to a file.
-          However, the issue will simply arise later when trying to *load* that data to a component.
+      queryAndWriteAllDataSources() {
+        this.runAllQueriesCount = 0
+        this.dataUpdateProgressSuccess = 0
+        this.runAllQueriesSuccessCount = 0
+        this.dataUpdateProgressFail = 0
+        this.runAllQueriesFailCount = 0
+        this.runDataSource = true // changing this triggers the queries to run in the subcomponent
+        this.isRunningAllQueries = true
 
-          So this dataGeneration WILL bring the data into memory (json object), then write that object to a file
-          This allows me to capture "large data request problems" *here* rather than when a user tries to render that same data
-      */
-      queryAndWriteOneDataSource(dataSource, callback = this.runResult) {
-        dataSource.isRunning = true
-        dataSource.attempted = true
-        dataSource.successMsg = null
-        dataSource.errorMsg = null
-        const qr = new QueryRunnerFileWriter(dataSource, callback)
+        document.getElementById('generateDataProgressBarSuccess').classList.add('progress-bar-animated')
+        document.getElementById('generateDataProgressBarFail').classList.add('progress-bar-animated')
       },
 
-      // probably don't want to actually return all the results... could be huge
-      runResult(result, dataSource) { // result is an object of {success:true, results:..., filesWritten:...} or {success:false, err: error}
-        dataSource.isRunning = false
-        // we get here even if we've had an error. So check that the error message hasn't already been populated
-        if (result.success && dataSource.errorMsg == null) {
-          dataSource.succeeded = true
-          dataSource.successMsg = 'received ' + result.result.length + ' record set(s), with a total of ' + result.result.reduce((p, c) => p + c) + ' records. Wrote ' + result.filesWritten + ' file(s) '
-          dataSource.resultHandling.forEach(rh => {
-            const filename = rh.filename
-            dataSource.successMsg += ' : <a href="file://' + path.join(this.fullAppDataStoreDirectoryPath, filename) + '" target="_blank">' + filename + '</a> '
-          })
-        } else if (result.error != null) {
-          dataSource.errorMsg = 'error: ' + result.error
+      // subcomponent emits event when data is run that gets us here.  We should *always* get here (failed or not)
+      //  this allows us to re-enable the 'run all' button.
+      //  but we can check the status of each request, so can provide top-level feedback
+      oneDataRunComplete(completedDataSource) {
+        this.runAllQueriesCount++
+        // update the progress bar
+        if (completedDataSource.succeeded) {
+          this.runAllQueriesSuccessCount++
+          this.dataUpdateProgressSuccess = 100 * this.runAllQueriesSuccessCount / this.dataSources.length
+          document.getElementById('generateDataProgressBarSuccess').innerHTML = this.runAllQueriesSuccessCount
+        } else {
+          this.runAllQueriesFailCount++
+          this.dataUpdateProgressFail = 100 * this.runAllQueriesFailCount / this.dataSources.length
+          document.getElementById('generateDataProgressBarFail').innerHTML = this.runAllQueriesFailCount
+          log.info('FAILED running datasource', completedDataSource.name)
         }
 
-      },
 
-
-      queryAndWriteAllDataSources(currQuery = this.runAllQueriesCount) {
-        this.isRunningAllQueries = true
-        this.queryAndWriteOneDataSource(this.dataSources[currQuery], (result, dataSource) => {
-          this.runResult(result, dataSource)
-          if (this.runAllQueriesCount < this.dataSources.length) {
-            this.queryAndWriteAllDataSources(this.runAllQueriesCount++)
-          } else {
-            this.runAllQueriesCount = 0
-            this.isRunningAllQueries = false
-          }
-        })
+        // if complete, reset, allowing the "run everything" button to be clicked again
+        if (this.runAllQueriesCount === this.dataSources.length) {
+          this.runDataSource = false
+          this.isRunningAllQueries = false
+          document.getElementById('generateDataProgressBarSuccess').classList.remove('progress-bar-animated')
+          document.getElementById('generateDataProgressBarFail').classList.remove('progress-bar-animated')
+        }
       }
 
     }
   }
 
 
-  
 </script>
 
 <style scoped lang="scss">
   #globalVariableHolder{
     margin-bottom: 40px;
+  }
+
+  .progress{
+    height: 20px;
+  }
+
+  .progress-bar{
+    font-weight: bold;
   }
 
   .dataSource{
@@ -225,7 +251,6 @@
     margin-left: 63px;
     font-weight: normal;
     width: 250px;
-
   }
 
 
