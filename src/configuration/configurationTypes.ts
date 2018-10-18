@@ -169,3 +169,12 @@ export interface SparkPlusMetadataOnFieldsResult {
   endDate: Date
 }
 
+
+export interface DataFileFormat {
+  metadata: DataFileFormatMetadata
+  data: any
+}
+interface DataFileFormatMetadata {
+  query: string
+  runTime: string
+}

@@ -17,7 +17,7 @@ export default{
   },
 
   computed: {
-    ...mapState(['isAdmin', 'applicationVersion'])
+    ...mapState(['isAdminUser'])
   },
 
   mounted() {

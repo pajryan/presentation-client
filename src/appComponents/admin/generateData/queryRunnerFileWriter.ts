@@ -1,5 +1,5 @@
 'use strict'
-import {DataSource, DataSourceResultHandler, DataSourceSqlParameter, Passwords} from '@/configuration/configurationTypes'
+import {DataSource, DataSourceSqlParameter, DataFileFormat, Passwords} from '@/configuration/configurationTypes'
 
 import sql from 'mssql'
 import { config } from 'mssql'
@@ -8,6 +8,7 @@ import path from 'path'
 import fs from 'fs'
 import log from 'electron-log'
 import store from '@/store'
+const d3 = require('d3')
 
 
 // const events = require('events');
@@ -41,6 +42,9 @@ export class QueryRunnerFileWriter {
   rowsAffected: any       // need to type this
   recordCount: number
   hitError: boolean
+  finalQueryRun: string
+
+  private dataFileDateFormat = d3.timeFormat('%m/%d/%Y %H:%M:%S')
 
   constructor(dataSource: DataSource, callback: CallbackFunc) {
     this.dataSource = dataSource
@@ -50,6 +54,7 @@ export class QueryRunnerFileWriter {
     this.rowsAffected = null  // contains some metadata about row counts etc
     this.recordCount = -1
     this.hitError = false
+    this.finalQueryRun = ''
 
     this.run()
   }
@@ -89,7 +94,16 @@ export class QueryRunnerFileWriter {
       fileCallback('Error writing data file. Got results, but found no filename')
     }
 
-    fs.writeFile(path.join(store.getters.fullAppDataStoreDirectoryPath, filename), JSON.stringify(data, null, '\t'), (err: any) => {
+    // add the actual query that was run, and when it was run directly to the data
+    const dataFileJson: DataFileFormat = {
+      metadata: {
+       query: this.finalQueryRun,
+       runTime: this.dataFileDateFormat(new Date())
+      },
+      data
+    }
+
+    fs.writeFile(path.join(store.getters.fullAppDataStoreDirectoryPath, filename), JSON.stringify(dataFileJson, null, '\t'), (err: any) => {
       if (err) {
         log.error('error writing file ' + filename, err)
         fileCallback(err)
@@ -114,7 +128,9 @@ export class QueryRunnerFileWriter {
       if (this.dataSource.isStoredProcedure) {
         log.error('TODO, need to handle parameters to SP.')
         // log.info('running stored procedure', this.dataSource.query)
-        request.execute(this.dataSource.query)
+
+        this.finalQueryRun = this.dataSource.query
+        request.execute(this.finalQueryRun)
 
       } else {
         let sqlstring: string = this.dataSource.query
@@ -126,7 +142,8 @@ export class QueryRunnerFileWriter {
           })
         }
         // log.info('running query', sqlstring)
-        request.query(sqlstring)
+        this.finalQueryRun = sqlstring
+        request.query(this.finalQueryRun)
       }
 
       const onRecordset = (columns: any) => {  // Emitted once for each recordset in a query

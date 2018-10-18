@@ -59,37 +59,6 @@
             v-on:dataRunComplete = "oneDataRunComplete"
           />
             <!-- props: ['componentIndex', 'itemDataSourceConfig', 'showOtherComponentsThatUseThisData', 'adminObj', 'pageItems', 'state'],  -->
-
-
-
-
-         <!-- 
-          <button type="button" class="btn btn-primary btn-sm" @click="queryAndWriteOneDataSource(dataSource)" :disabled="dataSource.isRunning">run</button>
-          <label>{{ dataSource.name }}</label>
-          < !- - messages - - >
-          <label :hidden="dataSource.successMsg==null"  class="alert alert-success"><span v-html="dataSource.successMsg"></span></label>
-          <label :hidden="dataSource.errorMsg==null"  class="alert alert-danger">{{ dataSource.errorMsg }}</label>
-          < !- - parameters - - >
-          <div v-for="parameter in dataSource.sqlParameters" class="dataSourceParameter"  :key="parameter.index">
-            <label>{{ parameter.label }}</label>
-            <input v-model="parameter.value" />
-          </div>
-          < !- - components that use this dataSource - - >
-          <p class="relatedComponentsLink" @click="dataSource.isExpanded = !dataSource.isExpanded">show/hide related components</p>
-          <div v-if="dataSource.isExpanded" class="relatedComponents alert alert-primary">
-            Components <b>in the active presentation</b> that use this data:
-            <ol v-if="activePresentationComponents.filter(c => c.type.data.find(f => f===dataSource.name)).length>0">
-              <li v-for="component in activePresentationComponents.filter(c => c.type.data.find(f => f===dataSource.name))" :key="component.index">
-                {{component.type.component}} (section {{component.sectionIndex + 1}}, page {{component.pageIndex + 1}})
-              </li>
-            </ol>
-            <ul v-else>
-              <li><i>none found. (but could be in other presentations!)</i></li>
-            </ul>
-          </div>
-        -->
-
-          
         </div>
       </div>
 
@@ -103,10 +72,8 @@
 <script>
   import Vue from 'vue'
   import {mapGetters} from 'vuex'
-  // import * as admin from '@/appComponents/admin/adminFunctions.ts'
   import dataSourceConfig from '@/configuration/dataSourceConfig.json'
   import dataSourceConfigSchema from '@/configuration/dataSourceConfigSchema.json'
-  // import {QueryRunnerFileWriter} from '@/appComponents/admin/generateData/queryRunnerFileWriter.ts'
   import GenerateDataForOneDataSourceUI from './generateDataForOneDataSourceUI.vue'
 
   import log from 'electron-log'
@@ -187,26 +154,30 @@
       //  this allows us to re-enable the 'run all' button.
       //  but we can check the status of each request, so can provide top-level feedback
       oneDataRunComplete(completedDataSource) {
-        this.runAllQueriesCount++
-        // update the progress bar
-        if (completedDataSource.succeeded) {
-          this.runAllQueriesSuccessCount++
-          this.dataUpdateProgressSuccess = 100 * this.runAllQueriesSuccessCount / this.dataSources.length
-          document.getElementById('generateDataProgressBarSuccess').innerHTML = this.runAllQueriesSuccessCount
-        } else {
-          this.runAllQueriesFailCount++
-          this.dataUpdateProgressFail = 100 * this.runAllQueriesFailCount / this.dataSources.length
-          document.getElementById('generateDataProgressBarFail').innerHTML = this.runAllQueriesFailCount
-          log.info('FAILED running datasource', completedDataSource.name)
-        }
+        // only update the progress bar if we're running ALL the datasource.
+        // this function/event is triggered even when one dataSource is run independently (so can react to the UI here if we want)
+        if (this.isRunningAllQueries) {
+          this.runAllQueriesCount++
+          // update the progress bar
+          if (completedDataSource.succeeded) {
+            this.runAllQueriesSuccessCount++
+            this.dataUpdateProgressSuccess = 100 * this.runAllQueriesSuccessCount / this.dataSources.length
+            document.getElementById('generateDataProgressBarSuccess').innerHTML = this.runAllQueriesSuccessCount
+          } else {
+            this.runAllQueriesFailCount++
+            this.dataUpdateProgressFail = 100 * this.runAllQueriesFailCount / this.dataSources.length
+            document.getElementById('generateDataProgressBarFail').innerHTML = this.runAllQueriesFailCount
+            log.info('FAILED running datasource', completedDataSource.name)
+          }
 
 
-        // if complete, reset, allowing the "run everything" button to be clicked again
-        if (this.runAllQueriesCount === this.dataSources.length) {
-          this.runDataSource = false
-          this.isRunningAllQueries = false
-          document.getElementById('generateDataProgressBarSuccess').classList.remove('progress-bar-animated')
-          document.getElementById('generateDataProgressBarFail').classList.remove('progress-bar-animated')
+          // if complete, reset, allowing the "run everything" button to be clicked again
+          if (this.runAllQueriesCount === this.dataSources.length) {
+            this.runDataSource = false
+            this.isRunningAllQueries = false
+            document.getElementById('generateDataProgressBarSuccess').classList.remove('progress-bar-animated')
+            document.getElementById('generateDataProgressBarFail').classList.remove('progress-bar-animated')
+          }
         }
       }
 

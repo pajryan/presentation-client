@@ -2,8 +2,12 @@
   <div>
     <div class="qa">
       <p style="font-weight: bold">Data QA: </p>
+
       <div v-for="(rh, i) in resultHandlers" :key="'result-' + i" class="qaHolder">
         <b>{{rh.filename}}</b>
+        <ul v-if="!rh.qa || (!rh.qa.asOfDateField && (!rh.qa.sparkPlusMetadataOnFields || rh.qa.sparkPlusMetadataOnFields.length < 1) && (!rh.qa.scripts || rh.qa.scripts.length < 1))">
+          <li>No QA defined for this file</li>
+        </ul>
         <table v-if="rh.fullQaResults.length > 0">
           <thead>
             <tr>

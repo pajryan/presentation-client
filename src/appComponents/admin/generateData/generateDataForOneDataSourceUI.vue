@@ -1,6 +1,5 @@
 <template>
     <div class="oneDataUpdateComponent" style="padding-left: 6px;">
-
       <button type="button" class="btn btn-primary btn-sm" @click="queryAndWriteOneDataSource(dataSource)" :disabled="dataSource.isRunning">run</button>
       <label style="font-weight:bold; margin-left: 12px; padding-top: 4px;">{{ dataSource.name }}</label>
 
@@ -118,8 +117,8 @@
       },
 
 
-      // probably don't want to actually return all the results... could be huge
-      runResult(result, dataSource) { // result is an object of {success:true, results:..., filesWritten:...} or {success:false, err: error}
+      // the result of running the queries and generating files
+      runResult(result, dataSource) {
         dataSource.isRunning = false
         // we get here even if we've had an error. So check that the error message hasn't already been populated
         if (result.success && dataSource.errorMsg == null) {
@@ -127,7 +126,8 @@
           dataSource.successMsg = 'received ' + result.result.length + ' record set(s), with a total of ' + result.result.reduce((p, c) => p + c) + ' records. Wrote ' + result.filesWritten + ' file(s) '
           dataSource.resultHandling.forEach(rh => {
             const filename = rh.filename
-            dataSource.successMsg += ' : <a href="file://' + path.join(this.fullAppDataStoreDirectoryPath, filename) + '" target="_blank">' + filename + '</a> '
+            const url = '/#/displayDataFile/' + filename    // use /displayDataFile route to open a new page to DisplayDataFile.vue
+            dataSource.successMsg += ' : <a href="' + url + '" target="_blank">' + filename + '</a> <br />'
           })
         } else if (result.error != null) {
           dataSource.errorMsg = '' + result.error

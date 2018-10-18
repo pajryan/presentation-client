@@ -1,6 +1,7 @@
 import Vue from 'vue'
 import App from './App.vue'
-// import router from './router'  // not used, but available
+import AppStart from './AppStart.vue'
+import router from './router'  // not used, but available
 import store from './store'
 import {remote} from 'electron'
 import 'sass-loader'
@@ -31,7 +32,7 @@ window.addEventListener('contextmenu', (e) => {
 
 // build the main view
 new Vue({
-  // router,  // see router.ts.  Building a one-page app, so not using the router
+  router,  // see router.ts.  Building a one-page app, so not using the router
   store,
-  render: (h) => h(App),
+  render: (h) => h(AppStart),
 }).$mount('#app')

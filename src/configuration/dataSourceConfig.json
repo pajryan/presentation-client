@@ -69,7 +69,7 @@
           "qa": {
             "scripts": [
               {"function": "findMedian", "parameters": ["passedValue"]},
-              {"function": "findMedian", "parameters": ["passedValue"]}
+              {"function": "findMax", "parameters": ["passedValue"]}
             ]
           }
         },

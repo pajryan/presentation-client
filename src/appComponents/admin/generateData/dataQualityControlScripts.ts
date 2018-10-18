@@ -4,7 +4,7 @@ const dataSourceConfig: DataSourceConfig = require('@/configuration/dataSourceCo
 import log from 'electron-log'
 
 
-import { DataSourceResultHandler, DataSourceQa, SparkPlusMetadataOnFieldsResult, DataSourceConfig } from '@/configuration/configurationTypes'
+import { DataSourceResultHandler, DataSourceQa, DataFileFormat, SparkPlusMetadataOnFieldsResult, DataSourceConfig } from '@/configuration/configurationTypes'
 
 interface QaResult {
   filename: string
@@ -15,7 +15,7 @@ interface QaResult {
 export class DataQualityControlScripts {
   [index: string]: any  // this allows me (in TS) to reference functions in this class with this['functionNameAsString'] - which I need to do because the functions are named in dataSourceConfig.json
 
-  data: any         // would be nice to type this, but depends on the data.  So 'type' could be something to add to dataSourceConfig.json...
+  dataFile: DataFileFormat   // this is lightly typed. data.data is the actual data we care about.  data.date is not typed (depends on the actual data...)
   filename: string
   asOfDateField: string = ''
 
@@ -30,7 +30,7 @@ export class DataQualityControlScripts {
   private dateFormat = d3.utcParse(dataSourceConfig.metadata.dbDateFormat)
 
   constructor(data: any, resultHandle: DataSourceResultHandler) {
-    this.data = data
+    this.dataFile = data
     this.filename = resultHandle.filename
     if (resultHandle.qa) {
       this.qa = resultHandle.qa
@@ -86,13 +86,13 @@ export class DataQualityControlScripts {
       return new Date(1900, 0, 1)
     }
     // parse to date, and sort
-    const extract: Date[] = this.data.map((d: any) => this.dateFormat(d[field])).sort( (a: Date, b: Date) => b.getTime() - a.getTime())
+    const extract: Date[] = this.dataFile.data.map((d: any) => this.dateFormat(d[field])).sort( (a: Date, b: Date) => b.getTime() - a.getTime())
     return extract[0]
   }
 
   // only called from runQaFunctions() - based on parameters in dataSourceConfig.json
   findOutlier(field: string): QaResult {
-    const extract = this.data.map((d: any) => d[field]) // convert the array of objects to an array of only the value we care about
+    const extract = this.dataFile.data.map((d: any) => d[field]) // convert the array of objects to an array of only the value we care about
     let indexOfOutliers = stats.indexOfOutliers(extract)
     indexOfOutliers = indexOfOutliers.map( (n: number) => this.fmtDec3(n))
     return {
@@ -103,7 +103,7 @@ export class DataQualityControlScripts {
   }
 
   findMedian(field: string): QaResult {
-    const extract = this.data.map((d: any) => d[field])
+    const extract = this.dataFile.data.map((d: any) => d[field])
     const median = stats.median(extract)
     return {
       filename: this.filename,
@@ -113,7 +113,7 @@ export class DataQualityControlScripts {
   }
 
   findMax(field: string): QaResult {
-    const extract = this.data.map((d: any) => d[field])
+    const extract = this.dataFile.data.map((d: any) => d[field])
     const max = d3.max(extract, (d: any) => d)
     return {
       filename: this.filename,
@@ -123,7 +123,7 @@ export class DataQualityControlScripts {
   }
 
   findMin(field: string): QaResult {
-    const extract = this.data.map((d: any) => d[field])
+    const extract = this.dataFile.data.map((d: any) => d[field])
     const min = d3.min(extract, (d: any) => d)
     return {
       filename: this.filename,
@@ -133,7 +133,7 @@ export class DataQualityControlScripts {
   }
 
   findLatestValue(field: string): QaResult {
-    const extract = this.data.map((d: any) => d[field])
+    const extract = this.dataFile.data.map((d: any) => d[field])
     const latest = extract[extract.length - 1]
     return {
       filename: this.filename,
@@ -151,12 +151,12 @@ export class DataQualityControlScripts {
     const innerWidth = width - margin.right - margin.left
     const innerHeight = height - margin.top - margin.bottom
     const svg = d3.select('body').append('svg').attr('width', width).attr('height', height)
-    const xScale = d3.scaleLinear().domain([0, this.data.length - 1]).range([0, innerWidth])
-    const yScale = d3.scaleLinear().domain(d3.extent(this.data, (d: any) => d[field])).range([innerHeight, 0])
+    const xScale = d3.scaleLinear().domain([0, this.dataFile.data.length - 1]).range([0, innerWidth])
+    const yScale = d3.scaleLinear().domain(d3.extent(this.dataFile.data, (d: any) => d[field])).range([innerHeight, 0])
     const valueline = d3.line().x((d: any, i: number) => xScale(i)).y((d: any) => yScale(d[field]))
-    svg.append('path').data([this.data]).attr('class', 'line').attr('d', valueline)
+    svg.append('path').data([this.dataFile.data]).attr('class', 'line').attr('d', valueline)
     if (showLabelAndLastValue) {
-      const lastDataValue = this.data[this.data.length - 1][field]
+      const lastDataValue = this.dataFile.data[this.dataFile.data.length - 1][field]
       svg.append('text')
         .text(numFmt(lastDataValue))
         .attr('text-anchor', 'end')
@@ -177,7 +177,7 @@ export class DataQualityControlScripts {
     const innerWidth = width - margin.right - margin.left
     const innerHeight = height - margin.top - margin.bottom
     const svg = d3.select('body').append('svg').attr('width', width).attr('height', height)
-    const extract = this.data.map((d: any) => d[field])
+    const extract = this.dataFile.data.map((d: any) => d[field])
 
     const x = d3.scaleLinear().rangeRound([0, width]).domain([0, d3.max(extract)])
     const bins = d3.histogram().domain(x.domain()).thresholds(x.ticks(10))(extract)
