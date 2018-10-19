@@ -104,7 +104,7 @@
       "name": "RiskPremium",
       "notes": "Provides DP, market spread and expected loss over time",
       "isStoredProcedure": false,
-      "query": "select price_date as date, dp1 as dp, spread as marketSpread, expected_loss as expectedLossSpread from macro..expected_loss order by price_date; select price_date as date, dp1 as dp, spread as marketSpread, expected_loss as expectedLossSpread from macro..expected_loss order by price_date",
+      "query": "select price_date as date, SUBSTRING('abcdefghijkmnopqrstuvwxyzABCDEFGHIJKLMNPQRSTUVWXY',CONVERT(int, RAND(CAST(RIGHT(CAST(CAST(CRYPT_GEN_RANDOM(4) AS INT) AS VARCHAR(100)), 1) AS INT)) * 45),5) as randomAlphaString, CONVERT(varchar(255), NEWID()) as randomString, dp1 as dp, spread as marketSpread, expected_loss as expectedLossSpread from macro..expected_loss order by price_date; select price_date as date, dp1 as dp, spread as marketSpread, expected_loss as expectedLossSpread from macro..expected_loss order by price_date",
       "sqlParameters": [],
       "resultHandling": [
         {
