@@ -98,6 +98,7 @@ export class QueryRunnerFileWriter {
     const dataFileJson: DataFileFormat = {
       metadata: {
        query: this.finalQueryRun,
+       filename,
        runTime: this.dataFileDateFormat(new Date())
       },
       data

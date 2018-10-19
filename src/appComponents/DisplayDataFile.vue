@@ -40,7 +40,6 @@
         </table>
       </div>
       <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab"><textarea v-model="dataFileContentsString"></textarea></div>
-      <!-- <div class="tab-pane fade" id="contact" role="tabpanel" aria-labelledby="contact-tab">csv</div> -->
     </div>
   </div>
 </template>

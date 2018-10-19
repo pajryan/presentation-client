@@ -4,7 +4,8 @@ const path = require('path')
 const request = require('request')
 const archiver = require('archiver')
 import log from 'electron-log'
-
+import store from '@/store'
+import {DataFileFormat} from '@/configuration/configurationTypes'
 
 type CallbackOnline = (isOnline: boolean) => void
 export type CallbackSuccessErr = (success: boolean, error?: ErrorObject) => void
@@ -154,6 +155,42 @@ export function checkOnlineAndDataConnectionAndApiKey(dataUrl: string, apiKey: s
     }
   })
 }
+
+
+export function publishDataFile(dataFileJson: DataFileFormat, callback: CallbackSuccessErr) {
+  const dataUrl = store.getters.getDataUpdateServiceURL
+  const apiKey = store.getters.getApiKey
+  const endpoint = '/publishData'
+  const postData = {data: {dataFileJson, apiKey}}
+  const opts = { host: dataUrl, port: 80, path: endpoint, method: 'POST', headers: {'Content-Type': 'application/json'}}
+  if (dataUrl.indexOf('localhost') !== -1) {opts.port = 3000; opts.host = 'localhost'}
+  const req = http.request(opts, (res: any) => {
+    res.setEncoding('utf8')
+    res.on('data', (data: any) => {
+      try {
+        const o = JSON.parse(data)
+        if (o.status && o.status === 400) {
+          callback(false, {error: o.error})
+        } else {
+          callback(true)
+        }
+      } catch (e) {
+        log.error('got an unexpected response from the server', e)
+        callback(false, {error: 'unexpected response from server, resulting in: ' + e.toString() + ' CHECK SERVER LOGS'})
+      }
+    })
+  })
+
+  req.on('error', (error: any) => {
+    log.error('error making publishDataFile call', error)
+    callback(false, {error})
+  })
+  req.write(JSON.stringify(postData))
+  req.end()
+}
+
+
+
 
 //   // fetch data from data service
 //   dataServiceCall: (dataUrl: string, apiKey: string, endpoint: string, callback: CallbackObjErr) => {

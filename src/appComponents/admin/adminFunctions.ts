@@ -250,59 +250,59 @@ export function getPresentationById(id: string): Presentation {
   //   fs.unlinkSync(path.join(appPresentationPath, id + '.json')) // this just deletes
   // },
 
-  // publishPresentation: (id, callback) => {
-  //   utils.checkOnlineAndDataConnectionAndApiKey(_state.dataUpdateServiceURL, _state.apiKey, (online, err) => {
-  //     if (online) {
+// export function publishPresentation(id, callback) {
+//   utils.checkOnlineAndDataConnectionAndApiKey(_state.dataUpdateServiceURL, _state.apiKey, (online, err) => {
+//     if (online) {
 
-  //       const presentationToPublish = admin.getPresentationById(id)
-  //       // push the presentation to the server
-  //       utils.publishPresentation(_state.dataUpdateServiceURL, _state.apiKey, '/savePresentation', presentationToPublish, (data, err1) => {
-  //         // now, need to go thru the presentation and see if it includes any images not already published to the server
-  //         if (!err1 && data && data.status === 200) {
-  //           utils.getImagesList(_state.dataUpdateServiceURL, _state.apiKey, (data2, err2) => {
-  //             if (!err2 && data2 && data2.status === 200) {
-  //               const publishedImages = data2.images // array of <uuid>.png
-  //               // determine what images are in the presentation
-  //               const pres = this.getPresentationById(id)
-  //               const presImages = utils.extractKeyValueFromObject(pres, 'image')
-  //               // see if any of the presentation images are NOT published
-  //               const unpublishedImages = presImages.filter(pi => (publishedImages.findIndex(pub => pub === pi) === -1))
-  //               // log.info('unpublished images: ', unpublishedImages)
-  //               if (unpublishedImages.length === 0) {
-  //                 callback(data, err)    // no images to publish, return
-  //               } else {
-  //                 // need to publish images
-  //                 unpublishedImageObj = unpublishedImages.map(upi =>  ({image: upi, attempted: false, complete: false, msg: ''}))
-  //                 unpublishedImageObj.forEach(upi => {
-  //                   utils.publishImage(_state.dataUpdateServiceURL, _state.apiKey, path.join(admin.getAppImagePath(), upi.image), upi.image, (data, error) => {
-  //                     if (error) {
-  //                       log.error('error publishing image to server ', error)
-  //                       upi.attempted = true
-  //                       up.msg = error
-  //                       admin.publishPresentationImageStatus(callback)
-  //                     } else {
-  //                       upi.attempted = true
-  //                       upi.complete = true
-  //                       admin.publishPresentationImageStatus(callback)
-  //                     }
-  //                   })
-  //                 })
-  //               }
+//       const presentationToPublish = admin.getPresentationById(id)
+//       // push the presentation to the server
+//       utils.publishPresentation(_state.dataUpdateServiceURL, _state.apiKey, '/savePresentation', presentationToPublish, (data, err1) => {
+//         // now, need to go thru the presentation and see if it includes any images not already published to the server
+//         if (!err1 && data && data.status === 200) {
+//           utils.getImagesList(_state.dataUpdateServiceURL, _state.apiKey, (data2, err2) => {
+//             if (!err2 && data2 && data2.status === 200) {
+//               const publishedImages = data2.images // array of <uuid>.png
+//               // determine what images are in the presentation
+//               const pres = this.getPresentationById(id)
+//               const presImages = utils.extractKeyValueFromObject(pres, 'image')
+//               // see if any of the presentation images are NOT published
+//               const unpublishedImages = presImages.filter(pi => (publishedImages.findIndex(pub => pub === pi) === -1))
+//               // log.info('unpublished images: ', unpublishedImages)
+//               if (unpublishedImages.length === 0) {
+//                 callback(data, err)    // no images to publish, return
+//               } else {
+//                 // need to publish images
+//                 unpublishedImageObj = unpublishedImages.map(upi =>  ({image: upi, attempted: false, complete: false, msg: ''}))
+//                 unpublishedImageObj.forEach(upi => {
+//                   utils.publishImage(_state.dataUpdateServiceURL, _state.apiKey, path.join(admin.getAppImagePath(), upi.image), upi.image, (data, error) => {
+//                     if (error) {
+//                       log.error('error publishing image to server ', error)
+//                       upi.attempted = true
+//                       up.msg = error
+//                       admin.publishPresentationImageStatus(callback)
+//                     } else {
+//                       upi.attempted = true
+//                       upi.complete = true
+//                       admin.publishPresentationImageStatus(callback)
+//                     }
+//                   })
+//                 })
+//               }
 
-  //             } else {
-  //               callback(data, err)
-  //             }
-  //           })
-  //         } else {
-  //           callback(data, err)
-  //         }
-  //       })
-  //     } else {
-  //       log.error('could not connect to data provider', err)
-  //       callback(null, {error: err})
-  //     }
-  //   })
-  // },
+//             } else {
+//               callback(data, err)
+//             }
+//           })
+//         } else {
+//           callback(data, err)
+//         }
+//       })
+//     } else {
+//       log.error('could not connect to data provider', err)
+//       callback(null, {error: err})
+//     }
+//   })
+// }
 
   // publishPresentationImageStatus: (callback) => {
   //   const attempted = unpublishedImageObj.filter(d => d.attempted)
@@ -413,8 +413,42 @@ export let imageManagement = {
 }
 
 /*
-  DATA UPDATE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  DATA PUBLISH AND UPDATE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+export function publishOneDataFile(localDataFileName: string, callback: CallbackSuccessErr) {
+  // make sure we're online and connected to data
+  checkDataConnectionReady((success: boolean, error?: ErrorObject) => {
+    if (success) {
+      // get the file
+      let dataFileStr = ''
+      let dataJson = null
+      const filePath = path.join(store.getters.fullAppDataStoreDirectoryPath, localDataFileName)
+      if (fs.existsSync(filePath)) {
+        dataFileStr = fs.readFileSync(filePath, 'utf8')
+        try {
+          dataJson = JSON.parse(dataFileStr)
+        } catch (e) {
+          callback(false, {error: 'invalid json: ' + e})
+          return
+        }
+
+        // make call to server to publish the data file
+        utils.publishDataFile(dataJson, (publishSuccess: boolean, publishError) => {
+          if (publishSuccess) {
+            callback(true)
+          } else {
+            callback(false, publishError)
+          }
+        })
+      } else {
+        callback(false, {error: 'file does not exist (' + filePath + ')'})
+      }
+    } else {
+      log.error('could not connect to data provider to publish data file', error)
+      callback(false, error)
+    }
+  })
+}
 export let dataUpdate = {
   // checkForDataUpdates: (callback, dataAfterDate) => {
   //   return utils.checkIfOnline((isOnline) => {

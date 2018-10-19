@@ -23,44 +23,79 @@
         <li>Each entry should have some QC attached to it (need to think about this)</li>
       </ol>
 
-      <hr />
-
-      <div id="globalVariableHolder">
-        <h4>Global Variables</h4>
-        <div v-for="globalInput in globalInputs" class=""  :key="globalInput.index">
-          <label>{{ globalInput.label }}</label>
-
-          <!-- can get a type of datetime, string, int, or float -->
-          <input v-if="globalInput.type=='datetime'" type='text' :id="globalInput.referenceId" class="datePicker" />
-          <input v-else-if="globalInput.type=='int'" type='text' :id="globalInput.referenceId" :value="globalInput.defaultValue" />
-          <input v-else-if="globalInput.type=='float'" type='text' :id="globalInput.referenceId" :value="globalInput.defaultValue" />
-          <input v-else type='text' :id="globalInput.referenceId" :value="globalInput.defaultValue" />
-        </div>
-      </div>
 
 
-      <div id="dataSourceHolder">
-        <h4>
-          Data Sources
-          &nbsp;&nbsp;
-          <button type="button" class="btn btn-primary btn-sm" @click="queryAndWriteAllDataSources()" :disabled="isRunningAllQueries" >run everything</button>
-        </h4>
-          <div class="progress" style="margin-bottom: 30px;">
-            <div id="generateDataProgressBarSuccess" class="progress-bar progress-bar-striped  bg-success progress-bar-animated" role="progressbar" :style="{width: dataUpdateProgressSuccess + '%'}" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
-            <div id="generateDataProgressBarFail" class="progress-bar progress-bar-striped  bg-danger progress-bar-animated" role="progressbar" :style="{width: dataUpdateProgressFail + '%'}" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
+      <ul class="nav nav-tabs" id="tabNavs" role="tablist">
+        <li class="nav-item">
+          <a class="nav-link active" id="home-tab" data-toggle="tab" href="#home" role="tab" aria-controls="home" aria-selected="true">generate data</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="profile-tab" data-toggle="tab" href="#profile" role="tab" aria-controls="profile" aria-selected="false">publish data</a>
+        </li>
+      </ul>
+      <div class="tab-content" id="tabNavsContent">
+        <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
+
+          <div id="globalVariableHolder">
+            <h4>Global Variables</h4>
+            <div v-for="globalInput in globalInputs" class=""  :key="globalInput.index">
+              <label>{{ globalInput.label }}</label>
+
+              <!-- can get a type of datetime, string, int, or float -->
+              <input v-if="globalInput.type=='datetime'" type='text' :id="globalInput.referenceId" class="datePicker" />
+              <input v-else-if="globalInput.type=='int'" type='text' :id="globalInput.referenceId" :value="globalInput.defaultValue" />
+              <input v-else-if="globalInput.type=='float'" type='text' :id="globalInput.referenceId" :value="globalInput.defaultValue" />
+              <input v-else type='text' :id="globalInput.referenceId" :value="globalInput.defaultValue" />
+            </div>
           </div>
-        
-        
-        <div v-for="dataSource in dataSources" class="dataSource"  :key="dataSource.index">
-          <GenerateDataForOneDataSourceUI 
-            :itemDataSourceConfig="dataSource"
-            :showOtherComponentsThatUseThisData = "true"
-            :autoRun = "runDataSource"
-            v-on:dataRunComplete = "oneDataRunComplete"
-          />
-            <!-- props: ['componentIndex', 'itemDataSourceConfig', 'showOtherComponentsThatUseThisData', 'adminObj', 'pageItems', 'state'],  -->
+
+
+          <div>
+            <h4>
+              Data Sources&nbsp;&nbsp;
+              <button type="button" class="btn btn-primary btn-sm" @click="queryAndWriteAllDataSources()" :disabled="isRunningAllQueries" >run everything</button>
+            </h4>
+              <div class="progress" style="margin-bottom: 30px;">
+                <div id="generateDataProgressBarSuccess" class="progress-bar progress-bar-striped  bg-success progress-bar-animated" role="progressbar" :style="{width: dataUpdateProgressSuccess + '%'}" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
+                <div id="generateDataProgressBarFail" class="progress-bar progress-bar-striped  bg-danger progress-bar-animated" role="progressbar" :style="{width: dataUpdateProgressFail + '%'}" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
+              </div>
+            
+            
+            <div v-for="dataSource in dataSources" class="dataSource"  :key="dataSource.index">
+              <GenerateDataForOneDataSourceUI 
+                :itemDataSourceConfig="dataSource"
+                :showOtherComponentsThatUseThisData = "true"
+                :autoRun = "runDataSource"
+                v-on:dataRunComplete = "oneDataRunComplete"
+              />
+                <!-- props: ['componentIndex', 'itemDataSourceConfig', 'showOtherComponentsThatUseThisData', 'adminObj', 'pageItems', 'state'],  -->
+            </div>
+          </div>
+
+        </div>
+        <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
+          <div>
+            <h4>
+              Data Sources&nbsp;&nbsp;
+              <button type="button" class="btn btn-primary btn-sm" @click="publishAllDataSources()" :disabled="isRunningAllQueries" >publish everything</button>
+            </h4>
+              <div class="progress" style="margin-bottom: 30px;">
+                <div id="publishDataProgressBarSuccess" class="progress-bar progress-bar-striped  bg-success progress-bar-animated" role="progressbar" :style="{width: publishUpdateProgressSuccess + '%'}" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
+                <div id="publishDataProgressBarFail" class="progress-bar progress-bar-striped  bg-danger progress-bar-animated" role="progressbar" :style="{width: publishUpdateProgressFail + '%'}" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
+              </div>
+            
+            
+            <div v-for="(dataSource, i) in dataSources" class="dataSource"  :key="'publishDataSource=' + i" style="padding-left: 6px;">
+              <PublishDataForOneDataSourceUI 
+                :itemDataSourceConfig="dataSource"
+                :autoRun = "publishDataSource"
+                v-on:publishComplete = "onePublishComplete"
+              />
+            </div>
+          </div>
         </div>
       </div>
+
 
     </div> 
       
@@ -75,6 +110,7 @@
   import dataSourceConfig from '@/configuration/dataSourceConfig.json'
   import dataSourceConfigSchema from '@/configuration/dataSourceConfigSchema.json'
   import GenerateDataForOneDataSourceUI from './generateDataForOneDataSourceUI.vue'
+  import PublishDataForOneDataSourceUI from './publishDataForOneDataSourceUI.vue'
 
   import log from 'electron-log'
   import jquery from 'jquery'
@@ -89,20 +125,29 @@
 
   export default {
     components: {
-      GenerateDataForOneDataSourceUI
+      GenerateDataForOneDataSourceUI, PublishDataForOneDataSourceUI
     },
     data() {
       return {
         globalInputs: dataSourceConfig.globalInputs,
         dataSources: dataSourceConfig.dataSources,
-        isRunningAllQueries: false,
         dataConfigValidationErrors: [],
+
+        isRunningAllQueries: false,
         runDataSource: false,
         runAllQueriesCount: 0,
         runAllQueriesSuccessCount: 0,
         runAllQueriesFailCount: 0,
         dataUpdateProgressSuccess: 0,
-        dataUpdateProgressFail: 0
+        dataUpdateProgressFail: 0,
+
+        isPublishingAllDataSources: false,
+        publishDataSource: false,
+        publishAllDataSourcesCount: 0,
+        publishAllDataSourcesSuccessCount: 0,
+        publishAllDataSourcesFailCount: 0,
+        publishUpdateProgressSuccess: 0,
+        publishUpdateProgressFail: 0
       }
     },
     computed: {
@@ -179,7 +224,54 @@
             document.getElementById('generateDataProgressBarFail').classList.remove('progress-bar-animated')
           }
         }
+      },
+
+
+
+      publishAllDataSources() {
+        this.publishAllDataSourcesCount = 0
+        this.publishAllDataSourcesSuccessCount = 0
+        this.publishUpdateProgressSuccess = 0
+        this.publishAllDataSourcesFailCount = 0
+        this.publishUpdateProgressFail = 0
+
+        this.publishDataSource = true // changing this triggers the queries to run in the subcomponent
+        this.isPublishingAllDataSources = true
+
+        document.getElementById('publishDataProgressBarSuccess').classList.add('progress-bar-animated')
+        document.getElementById('publishDataProgressBarFail').classList.add('progress-bar-animated')
+      },
+
+
+      onePublishComplete(completedDataSource) {
+        // only update the progress bar if we're running ALL the datasource.
+        // this function/event is triggered even when one dataSource is run independently (so can react to the UI here if we want)
+        if (this.isPublishingAllDataSources) {
+          this.publishAllDataSourcesCount++
+          // update the progress bar
+          if (completedDataSource.publishSucceeded) {
+            this.publishAllDataSourcesSuccessCount++
+            this.publishUpdateProgressSuccess = 100 * this.publishAllDataSourcesSuccessCount / this.dataSources.length
+            document.getElementById('publishDataProgressBarSuccess').innerHTML = this.publishAllDataSourcesSuccessCount
+          } else {
+            this.publishAllDataSourcesFailCount++
+            this.publishUpdateProgressFail = 100 * this.publishAllDataSourcesFailCount / this.dataSources.length
+            document.getElementById('publishDataProgressBarFail').innerHTML = this.publishAllDataSourcesFailCount
+          }
+
+
+          // if complete, reset, allowing the "run everything" button to be clicked again
+          if (this.publishAllDataSourcesCount === this.dataSources.length) {
+            this.publishDataSource = false
+            this.isPublishingAllDataSources = false
+            document.getElementById('publishDataProgressBarSuccess').classList.remove('progress-bar-animated')
+            document.getElementById('publishDataProgressBarFail').classList.remove('progress-bar-animated')
+          }
+        }
       }
+
+
+
 
     }
   }
@@ -234,6 +326,13 @@
 
   .relatedComponents{
     margin-left: 64px;
+  }
+
+  .tab-content{
+    border-left: 1px solid #dee2e6;
+    border-right: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+    background: #fff;
   }
   
 </style>

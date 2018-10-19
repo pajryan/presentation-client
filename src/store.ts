@@ -87,6 +87,12 @@ export default new Vuex.Store({
     },
     fullAppPresentationConfigFilePath: state => {
       return path.join(state.appPath, state.appPresentationPath, state.appPresentationConfigFileName)
+    },
+    getApiKey: state => {
+      return state.apiKey
+    },
+    getDataUpdateServiceURL: state => {
+      return state.dataUpdateServiceURL
     }
 
   },

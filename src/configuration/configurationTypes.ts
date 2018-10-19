@@ -176,5 +176,6 @@ export interface DataFileFormat {
 }
 interface DataFileFormatMetadata {
   query: string
+  filename: string
   runTime: string
 }

@@ -32,7 +32,7 @@ window.addEventListener('contextmenu', (e) => {
 
 // build the main view
 new Vue({
-  router,  // see router.ts.  Building a one-page app, so not using the router
+  router,  // see router.ts.
   store,
   render: (h) => h(AppStart),
 }).$mount('#app')
