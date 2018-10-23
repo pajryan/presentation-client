@@ -12,7 +12,9 @@ import fs from 'fs'
 import store from '@/store'
 
 import {AppConfig, Passwords,
-        Presentation, PresentationConfig, PresentationSection, PresentationPage, PageItem, PageItemTypes} from '@/configuration/configurationTypes'
+        Presentation, PresentationConfig, PresentationSection, PresentationPage, PageItem, PageItemTypes,
+        DataLogFileItem,
+        CallbackObjErr, ErrorObject} from '@/configuration/configurationTypes'
 
 const unzipper = require('unzipper')
 
@@ -24,16 +26,20 @@ import * as utils from './adminUtils'
 import log from 'electron-log'
 
 
+
 type CallbackSuccess = (success: boolean) => void
 type CallbackSuccessErr = (success: boolean, error?: ErrorObject) => void
+type CallbackDataUpdateCheck = (isOnline: boolean, dataAvailable: boolean, message?: string) => void
+type CallbackGetDataUpdateFiles = (dataLogFiles: DataLogFileItem[], err?: ErrorObject) => void
+type CallbackGetDataUpdateProgress = (percentComplete: number, percentFailed: number, totalNumber: number) => void
+type CallbackGetDataUpdateErrors = (arrayOfErrors: DataLogFileItemProgress[]) => void
+
 
 interface StatusErrorObject {
   status: number
   error?: any
 }
-interface ErrorObject {
-  error: any
-}
+
 
 export interface AppInitialization {
   isFirstTimeUser: () => boolean
@@ -129,7 +135,7 @@ export function checkDataConnectionReady(callback: CallbackSuccessErr): void {
   utils.checkOnlineAndDataConnectionAndApiKey(
     store.state.dataUpdateServiceURL,
     store.state.apiKey,
-    (success: boolean, err?: utils.ErrorObject) => {
+    (success: boolean, err?: ErrorObject) => {
       callback(success, err)
     }
   )
@@ -449,103 +455,293 @@ export function publishOneDataFile(localDataFileName: string, callback: Callback
     }
   })
 }
+
+// export function checkForDataUpdates(callback: CallbackDataUpdateCheck, dataAfterDate?: Date) {
+//   checkDataConnectionReady((success: boolean, error?: ErrorObject) => {
+//     if (success) {
+
+//       // get the date this was last updated
+//       log.info('checking last update at ', store.getters.fullAppConfigFilePath)
+//       const appConfig = JSON.parse(fs.readFileSync(store.getters.fullAppConfigFilePath, 'utf8'))  // get the last data update from the config
+//       let lastAppDataUpdate = appConfig.lastDataUpdate
+//       console.log('dataAfterDate', dataAfterDate)
+//       console.log('CONFIG', lastAppDataUpdate)
+
+//       // if a date was passed, we're forcing a data update after the given date
+//       if (dataAfterDate) {lastAppDataUpdate = dataAfterDate.getTime()}
+
+//       console.log('DATE WEre USING', lastAppDataUpdate)
+
+//       if (lastAppDataUpdate === null) {  // new user, or data has been deleted
+//         callback(
+//           true, true, 'This is the first time you have fetched data. The application does not work until you have pulled down the latest, and it may take a little while. Please proceed with the data update, and be patient!'
+//         )
+//         return
+//       }
+
+//       // now get the data log from the data update service.
+//       getFilesToUpdate(lastAppDataUpdate, (dataToUpdate: DataLogFileItem[], err?: ErrorObject) => {
+//         if (err) {
+//           log.error('error calling the data update service: ', err)
+//           callback(true, false, 'error: ' + JSON.stringify(err))
+//           return
+//         }
+//         console.log('files to update: ', dataToUpdate)
+//         callback(true, dataToUpdate.length > 0)
+//       })
+
+//     } else {
+//       log.error('could not connect to data provider to publish data file', error)
+//       callback(false, false, error ? error.error : 'Could not connect to data update service')
+//     }
+//   })
+// }
+
+export function getFilesToUpdate(asOfDateInclusive: Date | undefined, callback: CallbackGetDataUpdateFiles): void {
+  // Get the data log from the data update service.  The data log is a large object that looks like { dataLog: [timestamp:<timeInMS>, file:<fileName>, timestamp:<timeInMS>, file:<fileName>, ....]}
+  //   The <timestamp> is when the source data (<fileName>) was created.  So any timestamps greater than the last udpate time in the config is NEW
+  utils.dataServiceCall('/dataLog', (data, err) => {
+    if (err) {
+      log.error('error calling the data update service: ', err)
+      callback([], err)
+      return
+    }
+    // filter the data by the date. If date is null, assume we want everything (e.g. after 1/1/1900)
+    const dataToUpdate: DataLogFileItem[] = data.dataLog.filter((d: DataLogFileItem) => {
+      return d.timeStamp >= (asOfDateInclusive ? asOfDateInclusive.getTime() : new Date(1900, 0, 1).getTime())
+    })
+    callback(dataToUpdate)
+  })
+}
+
+
+
+
+interface DataLogFileItemProgress extends DataLogFileItem {
+  // the following are used to keep track of progress as we download
+  index?: number
+  attempted?: boolean
+  complete?: boolean
+  msg?: string
+}
+
+export class GetDataUpdateFilesAsOf {
+  dataUpdateCheckCallback: CallbackDataUpdateCheck
+  progressCallback: CallbackGetDataUpdateProgress
+  completeCallback: CallbackGetDataUpdateErrors
+  errorCallback: CallbackObjErr
+  asOfDateInclusive: Date | undefined
+  dataToUpdate: DataLogFileItemProgress[] = []
+
+  constructor(
+      dataUpdateCheckCallback: CallbackDataUpdateCheck,
+      progressCallback: CallbackGetDataUpdateProgress,
+      completeCallback: CallbackGetDataUpdateErrors,
+      errorCallback: CallbackObjErr,
+      asOfDateInclusive?: Date
+      ) {
+    this.dataUpdateCheckCallback = dataUpdateCheckCallback
+    this.progressCallback = progressCallback
+    this.completeCallback = completeCallback
+    this.errorCallback = errorCallback
+    // can be null if user has never fetched data (in fact, it's how we *know* they're new)
+    this.asOfDateInclusive = asOfDateInclusive
+  }
+
+  public checkStatusAndGetFiles() {
+    checkDataConnectionReady((success: boolean, error?: ErrorObject) => {
+      if (success) {
+        this.getLastAsOfDate(() => {
+          this.determineFilesToFetch(() => {
+            this.getUpdatedData()
+          })
+        })
+      } else {
+        this.errorCallback(error)
+      }
+    })
+  }
+
+  public checkStatus() {
+    checkDataConnectionReady((success: boolean, error?: ErrorObject) => {
+      if (success) {
+        this.getLastAsOfDate(() => {
+          if (!this.asOfDateInclusive) {  // no last update date, so inform user
+            this.dataUpdateCheckCallback(
+              true, true, 'This is the first time you have fetched data. The application does not work until you have pulled down the latest, and it may take a little while. Please proceed with the data update, and be patient!'
+            )
+            return
+          }
+          this.determineFilesToFetch(() => {
+            // have files, say so
+            this.dataUpdateCheckCallback(true, this.dataToUpdate.length > 0)
+          })
+        })
+      } else {
+        this.dataUpdateCheckCallback(false, false, error ? error.error : 'Could not connect to data update service')
+      }
+    })
+  }
+
+
+  public setAsOfDateInclusive(dt: Date) {
+    this.asOfDateInclusive = dt
+  }
+
+  private getLastAsOfDate(cb: any) {
+    if (this.asOfDateInclusive) {  // date was passed, use it.
+      cb()
+    } else {
+      const appConfig: AppConfig = JSON.parse(fs.readFileSync(store.getters.fullAppConfigFilePath, 'utf8'))  // get the last data update from the config
+      if (appConfig.lastDataUpdate !== null && appConfig.lastDataUpdate !== undefined) {
+        this.asOfDateInclusive = new Date(appConfig.lastDataUpdate)
+      }
+      cb()
+    }
+  }
+
+  private determineFilesToFetch(cb: any) {
+    getFilesToUpdate(this.asOfDateInclusive, (dataToUpdate: DataLogFileItemProgress[], err?: ErrorObject) => {
+      this.dataToUpdate = dataToUpdate
+      cb()
+    })
+  }
+
+  private getUpdatedData() {
+      log.info('fetching new data for the following files:', this.dataToUpdate)
+      // add some metadata to track progress
+      this.dataToUpdate.forEach((d: DataLogFileItemProgress, i: number) => {
+        d.index = i
+        d.attempted = false
+        d.complete = false
+        d.msg = ''
+      })
+      // loop through all the data to update, fetch, and manage status
+      this.dataToUpdate.forEach((d: DataLogFileItemProgress, i: number) => {
+        // fetch the file and copy to the local directory
+        const req = '/requestFile/' + d.file
+        const outputFileAndPath: string = path.join(store.getters.fullAppDataStoreDirectoryPath, d.file)
+        utils.dataServiceCallLargeFile(req, outputFileAndPath, (data: any, error?: ErrorObject) => {
+          if (error) {// file not found
+            log.error('error fetching file from data service ', error)
+            d.attempted = true
+            d.msg = error.error
+            this.getUpdatedDataStatus()
+          } else {
+            d.attempted = true
+            d.complete = true
+            this.getUpdatedDataStatus()
+          }
+        })
+      })
+  }
+
+  private getUpdatedDataStatus() {
+    const attempted = this.dataToUpdate.filter(d => d.attempted)
+    const attemptedAndComplete = attempted.filter(d => d.complete)
+    const attemptedAndFailed = attempted.filter(d => !d.complete)
+    const percentComplete = 100 * attemptedAndComplete.length / this.dataToUpdate.length
+    const percentFailed = 100 * attemptedAndFailed.length / this.dataToUpdate.length
+    const percentAttempted = 100 * attempted.length / this.dataToUpdate.length
+    this.progressCallback(percentComplete, percentFailed, this.dataToUpdate.length)
+
+    if (percentAttempted === 100) {
+      const incomplete = this.dataToUpdate.filter(d => !d.complete)
+      if (incomplete.length === 0) {
+        this.completeCallback([])
+        this.asOfDateInclusive = new Date()
+        updateConfig('lastDataUpdate', this.asOfDateInclusive.getTime())
+      } else {
+        this.completeCallback(incomplete)
+      }
+    }
+  }
+
+
+}
+
+
+export function updateConfig(key: string, value: string | number) {
+  const appConfig = JSON.parse(fs.readFileSync(store.getters.fullAppConfigFilePath, 'utf8'))
+  appConfig[key] = value
+  fs.writeFileSync(store.getters.fullAppConfigFilePath, JSON.stringify(appConfig, null, '\t'))
+}
+
+
+// export function getUpdatedData(progressCallback, completeCallback) {
+//   const appConfig = JSON.parse(fs.readFileSync(store.getters.fullAppConfigFilePath, 'utf8'))  // get the last data update from the config
+//   const lastAppDataUpdate = appConfig.lastDataUpdate
+
+//   getFilesToUpdate(lastAppDataUpdate, (dataToUpdate: DataLogFileItemProgress[], err?: ErrorObject) => {
+//     if (err) {
+//       log.error('error calling the data update service: ', err)
+//       completeCallback([])
+//       callback(true, false, 'error: ' + JSON.stringify(err))
+//       return
+//     }
+
+
+//     log.info('fetching new data:', dataToUpdate)
+//     // add some metadata to track progress
+//     dataToUpdate.forEach((d, i: number) => {
+//       d.index = i
+//       d.attempted = false
+//       d.complete = false
+//       d.msg = ''
+//     })
+//     // loop through all the data to update, fetch, and manage status
+//     dataToUpdate.forEach((d, i: number) => {
+//       // fetch the file and copy to the local directory
+//       const req = '/requestFile/' + d.file
+//       utils.dataServiceCall(req, (data, error) => {
+
+//         if (error) {// file not found
+//           log.error('error fetching file from data service ', error)
+//           d.attempted = true
+//           d.msg = error
+//           getUpdatedDataStatus(progressCallback, completeCallback)
+//         } else {
+//           fs.writeFile(path.join(appDataPath, d.file), JSON.stringify(data, null, '\t'), writeError => {
+//             if (writeError) {
+//               log.error('error writing file ' + d.file, writeError)
+//               d.msg = writeError
+//               d.attempted = true
+//               getUpdatedDataStatus(progressCallback, completeCallback)
+//             } else {
+//               d.attempted = true
+//               d.complete = true
+//               getUpdatedDataStatus(progressCallback, completeCallback)
+//             }
+//           })
+//         }
+//       })
+//     })
+//   })
+// }
+
+// export function getUpdatedDataStatus(progressCallback, completeCallback) {
+//   const attempted = dataToUpdate.filter(d => d.attempted)
+//   const attemptedAndComplete = attempted.filter(d => d.complete)
+//   const attemptedAndFailed = attempted.filter(d => !d.complete)
+//   const percentComplete = 100 * attemptedAndComplete.length / dataToUpdate.length
+//   const percentFailed = 100 * attemptedAndFailed.length / dataToUpdate.length
+//   const percentAttempted = 100 * attempted.length / dataToUpdate.length
+//   progressCallback(percentComplete, percentFailed, dataToUpdate.length)
+
+//   if (percentAttempted === 100) {
+//     const incomplete = dataToUpdate.filter(d => !d.complete)
+//     if (incomplete.length === 0) {
+//       completeCallback()
+//       admin.updateConfig('lastDataUpdate', new Date().getTime())
+//     } else {
+//       completeCallback(incomplete)
+//     }
+//   }
+// }
+
+
+
 export let dataUpdate = {
-  // checkForDataUpdates: (callback, dataAfterDate) => {
-  //   return utils.checkIfOnline((isOnline) => {
-  //     if (!isOnline) {
-  //       callback({isOnline: false, dataAvailable: null, message: 'It looks like you are not connected to the internet. Connect to the internet and try again.'})
-  //       return
-  //     }
-  //     return utils.checkIfHaveDataConnection(_state.dataUpdateServiceURL, (hasDataConnection) => {
-  //       if (!hasDataConnection) {
-  //         callback({isOnline: false, dataAvailable: null, message: 'You appear to be connected to the internet, but the data-update service is not available. Contact Patrick.'})
-  //         return
-  //       }
-
-  //       // get the date this was last updated
-  //       log.info('checking last update at ', appConfigPath)
-  //       const appConfig = JSON.parse(fs.readFileSync(appConfigPath))  // get the last data update from the config
-  //       const lastAppDataUpdate = appConfig.lastDataUpdate
-
-  //       // if a date was passed, we're forcing a data update after the given date
-  //       if (dataAfterDate) {lastAppDataUpdate = dataAfterDate.getTime()}
-
-  //       // now get the data log from the data update service.  The data log is a large object that looks like { dataLog: [timestamp:<timeInMS>, file:<fileName>, timestamp:<timeInMS>, file:<fileName>, ....]}
-  //       //   The <timestamp> is when the source data (<fileName>) was created.  So any timestamps greater than the last udpate time in the config is NEW
-  //       utils.dataServiceCall(_state.dataUpdateServiceURL, _state.apiKey, '/dataLog', (data, err) => {
-  //         if (err) {
-  //           log.error('error calling the data update service: ', err)
-  //           callback({isOnline: true, dataAvailable: false, messsage: {text: 'error: ' + JSON.stringify(err)}})
-  //           return
-  //         }
-  //         dataToUpdate = data.dataLog.filter(d => d.timeStamp >= lastAppDataUpdate)
-  //         if (lastAppDataUpdate === null) {  // new user, or data has been deleted
-  //           callback({
-  //             isOnline: true, dataAvailable: true,
-  //             message: 'This is the first time you have fetched data. The application does not work until you have pulled down the latest, and it may take a little while. Please proceed with the data update, and be patient!'
-  //           })
-  //         } else {  // just a normal update
-  //           callback({isOnline: true, dataAvailable: dataToUpdate.length > 0})
-  //         }
-  //       })
-  //     })
-  //   })
-  // },
-
-
-  // getUpdatedData: (progressCallback, completeCallback) => {
-  //   log.info('fetching new data:', dataToUpdate)
-  //   // the following will work, but will need to setInterval or something gross to know when it's done. really need promises here
-  //   dataToUpdate.forEach((d, i) => { // add some metadata to track
-  //     d.index = i; d.attempted = false; d.complete = false; d.msg = ''
-  //   })
-  //   dataToUpdate.forEach((d, i) => {
-  //     // fetch the file and copy to the local directory
-  //     const req = '/requestFile/' + d.file
-  //     utils.dataServiceCall(_state.dataUpdateServiceURL, _state.apiKey, req, (data, error) => {
-
-  //       if (error) {// file not found
-  //         log.error('error fetching file from data service ', error)
-  //         d.attempted = true
-  //         d.msg = error
-  //         admin.getUpdatedDataStatus(progressCallback, completeCallback)
-  //       } else {
-  //         fs.writeFile(path.join(appDataPath, d.file), JSON.stringify(data, null, '\t'), err => {
-  //           if (err) {
-  //             log.error('error writing file ' + d.file, err)
-  //             d.msg = err
-  //             d.attempted = true
-  //             admin.getUpdatedDataStatus(progressCallback, completeCallback)
-  //           } else {
-  //             d.attempted = true
-  //             d.complete = true
-  //             admin.getUpdatedDataStatus(progressCallback, completeCallback)
-  //           }
-  //         })
-  //       }
-  //     })
-  //   })
-  // },
-
-  // getUpdatedDataStatus: (progressCallback, completeCallback) => {
-  //   const attempted = dataToUpdate.filter(d => d.attempted)
-  //   const attemptedAndComplete = attempted.filter(d => d.complete)
-  //   const attemptedAndFailed = attempted.filter(d => !d.complete)
-  //   const percentComplete = 100 * attemptedAndComplete.length / dataToUpdate.length
-  //   const percentFailed = 100 * attemptedAndFailed.length / dataToUpdate.length
-  //   const percentAttempted = 100 * attempted.length / dataToUpdate.length
-  //   progressCallback(percentComplete, percentFailed, dataToUpdate.length)
-
-  //   if (percentAttempted === 100) {
-  //     const incomplete = dataToUpdate.filter(d => !d.complete)
-  //     if (incomplete.length === 0) {
-  //       completeCallback()
-  //       admin.updateConfig('lastDataUpdate', new Date().getTime())
-  //     } else {
-  //       completeCallback(incomplete)
-  //     }
-  //   }
-  // },
 
   // deleteData = (callback) => {
   //   fs.readdir(appDataPath, (err, files) => {
@@ -559,12 +755,6 @@ export let dataUpdate = {
   //   })
   //   // update the config to null date
   //   admin.updateConfig('lastDataUpdate', null)
-  // },
-
-  // updateConfig: (key, value) => {
-  //   const appConfig = JSON.parse(fs.readFileSync(appConfigPath))
-  //   appConfig[key] = value
-  //   fs.writeFileSync(appConfigPath, JSON.stringify(appConfig, null, '\t'))
   // },
 
 }

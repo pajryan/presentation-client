@@ -1,3 +1,5 @@
+'use strict'
+
 const http = require('http')
 const fs = require('fs')
 const path = require('path')
@@ -5,18 +7,13 @@ const request = require('request')
 const archiver = require('archiver')
 import log from 'electron-log'
 import store from '@/store'
-import {DataFileFormat} from '@/configuration/configurationTypes'
+import {DataFileFormat, CallbackObjErr, ErrorObject} from '@/configuration/configurationTypes'
 
 type CallbackOnline = (isOnline: boolean) => void
 export type CallbackSuccessErr = (success: boolean, error?: ErrorObject) => void
-type CallbackObjErr = (result: any, error?: ErrorObject) => void
 type CallbackStatusErr = (result: StatusErrorObject) => void
 type CallbackErr = (error?: any) => void
 
-
-export interface ErrorObject {
-  error: any
-}
 
 interface StatusErrorObject {
   status: number
@@ -192,30 +189,50 @@ export function publishDataFile(dataFileJson: DataFileFormat, callback: Callback
 
 
 
-//   // fetch data from data service
-//   dataServiceCall: (dataUrl: string, apiKey: string, endpoint: string, callback: CallbackObjErr) => {
-//     const postData = {data: {apiKey}}
-//     const opts = { host: dataUrl, port: 80, path: endpoint, method: 'POST', headers: {'Content-Type': 'application/json'}}
-//     if (dataUrl.indexOf('localhost') !== -1) {opts.port = 3000; opts.host = 'localhost'}
-//     const req = http.request(opts, (res: any) => {
-//       res.setEncoding('utf8')
-//       res.on('data', (data: any) => {
-//         const o = JSON.parse(data)
-//         if (o.error) {
-//           callback(null, {error: o.error})
-//         } else {
-//           callback(o)
-//         }
-//       })
-//     })
+// fetch data from data service
+export function dataServiceCallLargeFile(endpoint: string, fileAndPath: string, callback: CallbackSuccessErr) {
+  const dataUrl = store.getters.getDataUpdateServiceURL
+  const apiKey = store.getters.getApiKey
+  const postData = {data: {apiKey}}
+  const opts = { host: dataUrl, port: 80, path: endpoint, method: 'POST', headers: {'Content-Type': 'application/json'}}
+  if (dataUrl.indexOf('localhost') !== -1) {opts.port = 3000; opts.host = 'localhost'}
 
-//     req.on('error', (error: any) => {
-//       log.error('error making dataService call', error)
-//       callback(null, {error})
-//     })
-//     req.write(JSON.stringify(postData))
-//     req.end()
-//   },
+  const fullUrl = dataUrl + endpoint
+  try {
+    request.post({url: fullUrl, form: postData}).pipe(fs.createWriteStream(fileAndPath))
+    callback(true)
+  } catch (e) {
+    callback(false, e)
+  }
+}
+
+
+// fetch data from data service
+export function dataServiceCall(endpoint: string, callback: CallbackObjErr) {
+  const dataUrl = store.getters.getDataUpdateServiceURL
+  const apiKey = store.getters.getApiKey
+  const postData = {data: {apiKey}}
+  const opts = { host: dataUrl, port: 80, path: endpoint, method: 'POST', headers: {'Content-Type': 'application/json'}}
+  if (dataUrl.indexOf('localhost') !== -1) {opts.port = 3000; opts.host = 'localhost'}
+  const req = http.request(opts, (res: any) => {
+    res.setEncoding('utf8')
+    res.on('data', (data: any) => {
+      const o = JSON.parse(data)
+      if (o.error) {
+        callback(null, {error: o.error})
+      } else {
+        callback(o)
+      }
+    })
+  })
+
+  req.on('error', (error: any) => {
+    log.error('error making dataService call', error)
+    callback(null, {error})
+  })
+  req.write(JSON.stringify(postData))
+  req.end()
+}
 
 
 

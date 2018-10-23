@@ -80,7 +80,6 @@
       autoRun: function(newValue, oldValue) { // DO NOT change this to an arrow function.  It changes the scope of "this". https://vuejs.org/v2/api/#watch
       /*tslint:enable*/
         if (newValue) {
-          log.info('auto running dataSource item: ', this.dataSource.name)
           this.queryAndWriteOneDataSource(this.dataSource)
         }
       }

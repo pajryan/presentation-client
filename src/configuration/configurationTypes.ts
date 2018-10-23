@@ -2,7 +2,7 @@
 // flat file: _appConfig.json stored on local machine
 export interface AppConfig {
   windowLocation?: any       // not using this yet, so not sure what type
-  lastDataUpdate?: Date      // this probably won't actually be a date? (but instead a number e.g. .getTime() result)
+  lastDataUpdate?: number      // Date().getTime() result
   userName: string
   userEmail: string
   dataUrl: string           // url used to fetch data
@@ -178,4 +178,22 @@ interface DataFileFormatMetadata {
   query: string
   filename: string
   runTime: string
+}
+
+
+// this file is stored on the SERVER side. So typing incoming JSON!
+export interface DataLogFile {
+  dataLog: DataLogFileItem[]
+}
+
+export interface DataLogFileItem {
+  timeStamp: number,  // result of Date().getTime()
+  file: string        // e.g.  "DoubleNumber.json"
+}
+
+
+export type CallbackObjErr = (result: any, error?: ErrorObject) => void
+
+export interface ErrorObject {
+  error: any
 }

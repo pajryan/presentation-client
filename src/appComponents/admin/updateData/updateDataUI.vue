@@ -97,6 +97,8 @@
 <script>
   import Vue from 'vue'
   import * as d3 from 'd3'
+  import * as admin from '@/appComponents/admin/adminFunctions.ts'
+  import log from 'electron-log'
 
   const formatDate = d3.timeFormat('%m/%d/%y')
   const parseDate = d3.timeParse('%m/%d/%y')
@@ -119,31 +121,33 @@
 
         showAdvanced: false,
         dataAfterDate: formatDate(new Date()),
-        deleteMsg: ''
+        deleteMsg: '',
+
+        dataUpdater: null
       }
     },
     mounted() {
-      // empty
+      this.dataUpdater = new admin.GetDataUpdateFilesAsOf(this.checkForDataUpdatesResult, this.fetchDataProgress, this.fetchDataResult, this.fetchDataError)
     },
     methods: {
       checkForUpdate() {
         this.updateReady = 0
         this.updateButtonDisabled = true
-        this.adminObj.checkForDataUpdates(this.checkForDataUpdatesResult, null)  // returns {isOnline:true/false, dataAvailable:true/false, message:<ifFalse>{text:.., severity:...</if>}
+        this.dataUpdater.checkStatus()
+        // admin.checkForDataUpdates(this.checkForDataUpdatesResult, null)  // returns {isOnline:true/false, dataAvailable:true/false, message:<ifFalse>{text:.., severity:...</if>}
       },
 
-      checkForDataUpdatesResult(arg) {
-        log.info('getting to result', arg)
+      checkForDataUpdatesResult(isOnline, dataAvailable, message) {
         this.arrayOfErrors = []
         this.fetchDataComplete = false
         this.updateButtonDisabled = false
-        this.isOnline = arg.isOnline
-        this.msg = arg.message ? arg.message.text : ''
+        this.isOnline = isOnline
+        this.msg = message ? message : ''
         if (!this.isOnline) {   // we're not online (or can't connect to the service.  get out.)
           return
         }
 
-        if (arg.dataAvailable) {
+        if (dataAvailable) {
           this.updateReady = 1   // need to fetch data
           this.updateButtonDisabled = true
         } else {
@@ -154,7 +158,8 @@
       fetchData() {
         this.amFetchingData = true
         this.numberOfFilesToUpdate = 0
-        this.adminObj.getUpdatedData(this.fetchDataProgress, this.fetchDataResult)
+        this.dataUpdater.checkStatusAndGetFiles()
+        // const fu = new admin.GetDataUpdateFilesAsOf(this.fetchDataProgress, this.fetchDataResult)
       },
       fetchDataProgress(percentComplete, percentFailed, totalNumber) { // 0 to 100
         this.numberOfFilesToUpdate = totalNumber
@@ -165,13 +170,16 @@
         this.updateButtonDisabled = false
         this.fetchDataComplete = true
         this.amFetchingData = false
-        if (arrayOfErrors) {
+        if (arrayOfErrors && arrayOfErrors.length > 0) {
           this.arrayOfErrors = arrayOfErrors
           log.error('done fetching data, but some files not complete', arrayOfErrors)
           this.fetchDataCompleteMsg = arrayOfErrors.length + ' data file(s) could not be updated.'
         } else {
           this.fetchDataCompleteMsg = 'Data update complete.'
         }
+      },
+      fetchDataError(error) {
+        log.error('error updating data', error)
       },
       getDataAsOf() {
         const onAfterDate = parseDate(document.getElementById('dataAfterDateAdd').value)
