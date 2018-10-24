@@ -62,23 +62,15 @@
     components: {
       dataQualityControlUI
     }
-    // ,
-    // props: {
-    //   itemDataSourceConfig: {},
-    //   showOtherComponentsThatUseThisData: true
-    //   // 'itemDataSourceConfig', 'showOtherComponentsThatUseThisData',   // always used
-    //   // 'autoRun',  // if true, component runs automatically (don't need to click the button) - this allows me to run from outside
-    //   // 'pageItems', 'componentIndex' // used only when running from the page itself (I think - haven't authored yet)
-    // }
   })
   export default class GenerateDataForOneDataSource extends AppVue {
 
 
      // always used
-    @Prop() itemDataSourceConfig!: DataSource // = {name: '', isStoredProcedure: false, query: '', sqlParameters: [], resultHandling: []}
-    @Prop() showOtherComponentsThatUseThisData!: boolean
+    @Prop({required: true}) itemDataSourceConfig!: DataSource // = {name: '', isStoredProcedure: false, query: '', sqlParameters: [], resultHandling: []}
+    @Prop({default: true, required: false}) showOtherComponentsThatUseThisData!: boolean
     // if true, component runs automatically (don't need to click the button) - this allows me to run from outside
-    @Prop() autoRun!: boolean
+    @Prop({default: false, required: false}) autoRun!: boolean
     // used only when running from the page itself (I think - haven't authored yet)
     // @Prop() pageItems
     // @Prop() componentIndex

@@ -519,7 +519,7 @@ export function getFilesToUpdate(asOfDateInclusive: Date | undefined, callback: 
 
 
 
-interface DataLogFileItemProgress extends DataLogFileItem {
+export interface DataLogFileItemProgress extends DataLogFileItem {
   // the following are used to keep track of progress as we download
   index?: number
   attempted?: boolean

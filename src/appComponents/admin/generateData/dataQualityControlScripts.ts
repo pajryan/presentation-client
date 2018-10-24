@@ -6,7 +6,7 @@ import log from 'electron-log'
 
 import { DataSourceResultHandler, DataSourceQa, DataFileFormat, SparkPlusMetadataOnFieldsResult, DataSourceConfig } from '@/configuration/configurationTypes'
 
-interface QaResult {
+export interface QaResult {
   filename: string
   label: string
   value: any  // whatever is returned here is just rendered as html. so svg is ok, as is number or string. TODO: think about this...

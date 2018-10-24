@@ -46,26 +46,33 @@
 
 
 
-<script>
+<script lang="ts">
   import Vue from 'vue'
-  import {mapGetters} from 'vuex'
+  import Component from 'vue-class-component'
+  import AppVue from '@/AppVue'
+  import { Prop, Watch } from 'vue-property-decorator'
+  import { DataSource, DataSourceResultHandler, SparkPlusMetadataOnFieldsResult } from '@/configuration/configurationTypes'
   import fs from 'fs'
   import path from 'path'
   import log from 'electron-log'
   const d3 = require('d3')
 
-  import {DataQualityControlScripts} from './dataQualityControlScripts'
+  import { DataQualityControlScripts, QaResult } from './dataQualityControlScripts'
 
-  export default {
-    props: ['dataSource'],
+  interface DataSourceResultHandlerProgress extends DataSourceResultHandler {
+    qaMessages: QaResult[]
+    fullQaResults: SparkPlusMetadataOnFieldsResult[]
+  }
 
-    data() {
-      return {
-        resultHandlers: [],
-        dateFormat: d3.timeFormat('%b%d,%Y'),
-        asOfDate: undefined
-      }
-    },
+  @Component
+  export default class DataQualityControlUI extends AppVue {
+    @Prop({required: true}) dataSource!: DataSource
+
+    resultHandlers: DataSourceResultHandlerProgress[] = []
+    dateFormat: any = d3.timeFormat('%b%d,%Y')
+    fullAppDataStoreDirectoryPath = this.$store.getters.fullAppDataStoreDirectoryPath
+
+
     mounted() {
       // goal here is to run the various QA queries and report back results
       //  all it needs is a datasource. It grabs the flat files (assumes they exist), and runs the qa
@@ -79,26 +86,17 @@
 
       this.resultHandlers.forEach(rh => {
         if (rh.qa) {
-          const data = JSON.parse(fs.readFileSync(path.join(this.fullAppDataStoreDirectoryPath, rh.filename)))
+          const data = JSON.parse(fs.readFileSync(path.join(this.fullAppDataStoreDirectoryPath, rh.filename), 'utf8'))
           const qaObj = new DataQualityControlScripts(data, rh)
           rh.qaMessages = rh.qa.scripts ? qaObj.runQaFunctions() : []
           rh.fullQaResults = rh.qa.sparkPlusMetadataOnFields ? qaObj.runStandardQaItems() : []
         }
       })
 
-    },
-    computed: {
-      ...mapGetters({
-          fullAppDataStoreDirectoryPath: 'fullAppDataStoreDirectoryPath'
-        })
-    },
-    methods: {
-
     }
   }
 
 
-  
 </script>
 
 <style scoped lang="scss">

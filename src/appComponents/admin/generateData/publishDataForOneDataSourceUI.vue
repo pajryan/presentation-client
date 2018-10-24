@@ -14,113 +14,100 @@
 
 
 
-<script>
+<script lang="ts">
   import Vue from 'vue'
-  import {mapGetters} from 'vuex'
+  import Component from 'vue-class-component'
+  import AppVue from '@/AppVue'
+  import { Prop, Watch } from 'vue-property-decorator'
+  // import {mapGetters} from 'vuex'
   import * as admin from '@/appComponents/admin/adminFunctions.ts'
+  import { DataSource, ErrorObject } from '@/configuration/configurationTypes'
   import log from 'electron-log'
   const dataSourceConfigImport = require('@/configuration/dataSourceConfig')
 
   import path from 'path'
-  
-  import dataQualityControlUI from './dataQualityControlUI.vue'
 
-  export default {
-    components: {
-      dataQualityControlUI
-    },
+  interface DataFilePublishProgress extends DataSource {
+    isPublishRunning: boolean
+    publishSucceeded: boolean
+    publishSuccessMsg: string
+    publishErrorMsg: string
+  }
 
-    // componentIndex is the index of the component on the page that this whole section is reponsible for updating. we'll use it when refreshing components
-    props: [
-      'itemDataSourceConfig', 'showOtherComponentsThatUseThisData',   // always used
-      'autoRun',  // if true, component runs automatically (don't need to click the button) - this allows me to run from outside
-      'pageItems', 'componentIndex' // used only when running from the page itself (I think - haven't authored yet)
-    ],
+  @Component
+  export default class PublishDataForOneDataSource extends AppVue {
 
-    data() {
-      return {
-        dataSource: this.itemDataSourceConfig,
-        activePresentationComponents: [],
+    @Prop({required: true}) itemDataSourceConfig!: DataFilePublishProgress // = {name: '', isStoredProcedure: false, query: '', sqlParameters: [], resultHandling: []}
+    // if true, component runs automatically (don't need to click the button) - this allows me to run from outside
+    @Prop({default: false, required: false}) autoRun!: boolean
 
-        totalFilesCount: 0,
-        runningFilesCount: 0
-      }
-    },
-    computed: {
-      ...mapGetters({
-          fullAppDataStoreDirectoryPath: 'fullAppDataStoreDirectoryPath'
-        })
-    },
-    watch: {
-      /*tslint:disable*/
-      autoRun: function(newValue, oldValue) { // DO NOT change this to an arrow function.  It changes the scope of "this". https://vuejs.org/v2/api/#watch
-      /*tslint:enable*/
+    dataSource: DataFilePublishProgress = this.itemDataSourceConfig
+    totalFilesCount: number = 0
+    runningFilesCount: number = 0
+
+    @Watch('autoRun')
+      function(newValue: boolean, oldValue: boolean) {
         if (newValue) {
           this.publishOneDataSource()
         }
       }
-    },
+
     mounted() {
-      // use Vue.set to add new keys (https://vuejs.org/2016/02/06/common-gotchas/)
-      Vue.set(this.dataSource, 'isPublishRunning', false)
-      Vue.set(this.dataSource, 'publishSucceeded', true)
+      this.dataSource.isPublishRunning = false
+      this.dataSource.publishSucceeded = true
+      this.dataSource.publishSuccessMsg = ''
+      this.dataSource.publishErrorMsg = ''
+    }
 
-      Vue.set(this.dataSource, 'publishSuccessMsg', '')
-      Vue.set(this.dataSource, 'publishErrorMsg', '')
-    },
-    methods: {
-      publishOneDataSource(callback = this.publishResult) {
-        this.dataSource.isPublishRunning = true
-        this.dataSource.publishSuccessMsg = ''
-        this.dataSource.publishErrorMsg = ''
+    publishOneDataSource(callback = this.publishResult) {
+      this.dataSource.isPublishRunning = true
+      this.dataSource.publishSuccessMsg = ''
+      this.dataSource.publishErrorMsg = ''
 
-        this.totalFilesCount = this.dataSource.resultHandling.length
-        this.runningFilesCount = 0
+      this.totalFilesCount = this.dataSource.resultHandling.length
+      this.runningFilesCount = 0
 
-        this.dataSource.publishSucceeded = true // need to reset this for any subsequent runs
+      this.dataSource.publishSucceeded = true // need to reset this for any subsequent runs
 
-        this.dataSource.resultHandling.forEach(rh => {
-          admin.publishOneDataFile(rh.filename, this.publishResult.bind(this, rh.filename))
-        })
-      },
+      this.dataSource.resultHandling.forEach(rh => {
+        admin.publishOneDataFile(rh.filename, this.publishResult.bind(this, rh.filename))
+      })
+    }
 
 
-      // the result of running the queries and generating files
-      publishResult(filename, success, error) {
-        this.runningFilesCount++
+    // the result of running the queries and generating files
+    publishResult(filename: string, success: boolean, error: ErrorObject) {
+      this.runningFilesCount++
 
-        // we get here even if we've had an error. So check that the error message hasn't already been populated
-        if (success) {
-          this.dataSource.publishSuccessMsg += ' published file: '
-          const url = '/#/displayDataFile/' + filename    // use /displayDataFile route to open a new page to DisplayDataFile.vue
-          this.dataSource.publishSuccessMsg += ' : <a href="' + url + '" target="_blank">' + filename + '</a> <br />'
-        } else {
-          log.error('Failed to publish data file (' + filename + ') ', error)
-          this.dataSource.publishSucceeded = false
-          this.dataSource.publishErrorMsg = 'error publishing ' + filename + ': ' + (error ? error.error : '')
-        }
+      // we get here even if we've had an error. So check that the error message hasn't already been populated
+      if (success) {
+        this.dataSource.publishSuccessMsg += ' published file: '
+        const url = '/#/displayDataFile/' + filename    // use /displayDataFile route to open a new page to DisplayDataFile.vue
+        this.dataSource.publishSuccessMsg += ' : <a href="' + url + '" target="_blank">' + filename + '</a> <br />'
+      } else {
+        log.error('Failed to publish data file (' + filename + ') ', error)
+        this.dataSource.publishSucceeded = false
+        this.dataSource.publishErrorMsg = 'error publishing ' + filename + ': ' + (error ? error.error : '')
+      }
 
-        if (this.runningFilesCount === this.totalFilesCount) {
-          this.$emit('publishComplete', this.dataSource)
-          this.dataSource.isPublishRunning = false
-        }
-
-      },
-
-
-      beforeDestroy: () => {
-        window.removeEventListener('resize', this.resize)
-      },
-      resize(event) {
-        // deal with resizing here
-      },
+      if (this.runningFilesCount === this.totalFilesCount) {
+        this.$emit('publishComplete', this.dataSource)
+        this.dataSource.isPublishRunning = false
+      }
 
     }
+
+    beforeDestroy() {
+      window.removeEventListener('resize', this.resize)
+    }
+    resize(event: any) {
+      // deal with resizing here
+    }
+
   }
 
-
-  
 </script>
+
 <style scoped lang="scss">
 
   .runOneDataButton{
