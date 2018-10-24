@@ -13,7 +13,7 @@ const d3 = require('d3')
 
 // const events = require('events');
 // let ee = events.EventEmitter;
-interface SuccessObj {
+export interface SuccessObj {
   success: boolean
   error?: any
   result?: any
@@ -33,9 +33,17 @@ const config: config = {
   }
 }
 
+export interface DataSourceProgress extends DataSource {
+  isRunning?: boolean
+  attempted?: boolean
+  succeeded?: boolean
+  successMsg?: string
+  errorMsg?: string
+}
+
 export class QueryRunnerFileWriter {
 
-  dataSource: DataSource
+  dataSource: DataSourceProgress
   callback: CallbackFunc
   filesWritten: number
   results: any[]          // need to type this
@@ -46,7 +54,7 @@ export class QueryRunnerFileWriter {
 
   private dataFileDateFormat = d3.timeFormat('%m/%d/%Y %H:%M:%S')
 
-  constructor(dataSource: DataSource, callback: CallbackFunc) {
+  constructor(dataSource: DataSourceProgress, callback: CallbackFunc) {
     this.dataSource = dataSource
     this.callback = callback
     this.filesWritten = 0

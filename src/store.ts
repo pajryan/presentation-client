@@ -1,5 +1,5 @@
 import Vue from 'vue'
-import Vuex from 'vuex'
+import Vuex, { StoreOptions } from 'vuex'
 import { remote } from 'electron'
 import path from 'path'
 
@@ -7,8 +7,28 @@ const passwords = require('@/configuration/PASSWORDS.json')
 
 Vue.use(Vuex)
 
+export interface AppStore {
+  applicationVersion: string
+  isAdminUser: boolean
+  isAdminShown: boolean
+  isFirstTimeUser: boolean
+  activePresentation: any, // type this
+  appPath: string
+  appDataStorePath: string
+  appDataArchivePath: string
+  appPresentationPath: string
+  appImagePath: string
+  appPresentationConfigFileName: string
+  appConfigFileName: string
+  userName: string
+  apiKey: string
+  userEmail: string
+  dataUpdateServiceURL: string
+  adminPassword: string
+}
 
-export default new Vuex.Store({
+
+const store: StoreOptions<AppStore> = {
   state: {
     applicationVersion: remote.app.getVersion(),
 
@@ -99,4 +119,6 @@ export default new Vuex.Store({
   actions: {
 
   }
-})
+}
+
+export default new Vuex.Store<AppStore>(store)

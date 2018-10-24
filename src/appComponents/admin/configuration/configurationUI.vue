@@ -52,92 +52,96 @@
 
 
 
-<script>
+<script lang="ts">
+  import Vue from 'vue'
+  import Component from 'vue-class-component'
+  // import { State, Action, Getter } from 'vuex-class'
   import { mapState, mapGetters, mapMutations } from 'vuex' // import state
   import log from 'electron-log'
   import * as admin from '@/appComponents/admin/adminFunctions.ts'
+  import AppVue from '@/AppVue'
+  import {AppConfig} from '@/configuration/configurationTypes'
 
-  export default {
-    computed: {
-      ...mapState(['isFirstTimeUser', 'userName', 'apiKey', 'userEmail', 'dataUpdateServiceURL', 'adminPassword']),
-      ...mapGetters({
-          fullAppDataStoreDirectoryPath: 'fullAppDataStoreDirectoryPath'
-        })
-    },
-    data() {
-      return {
-        successMsg: '',
-        errorMsg: '',
 
-        fieldName: '',
-        fieldEmail: '',
-        fieldDataUrl: '',
-        fieldApiKey: '',
-        fieldAdminPassword: ''
-      }
-    },
-    mounted() {
+
+  @Component
+  export default class ConfigurationUI extends AppVue {
+    successMsg: string = ''
+    errorMsg: string = ''
+
+    isFirstTimeUser: boolean = false
+    fieldName: string = ''
+    fieldEmail: string = ''
+    fieldDataUrl: string = ''
+    fieldApiKey: string = ''
+    fieldAdminPassword: string = ''
+
+    fullAppDataStoreDirectoryPath = this.$store.getters.fullAppDataStoreDirectoryPath
+
+    constructor() {
+      super()
       // we don't want to bind directly to state. So copy to local fields
-      this.fieldName = this.userName
-      this.fieldEmail = this.userEmail
-      this.fieldDataUrl = this.dataUpdateServiceURL
-      this.fieldApiKey = this.apiKey
-      this.fieldAdminPassword = this.adminPassword
-    },
-    methods: {
-      checkInputs(event) {
-        event.target.className = event.target.className.replace('btn-primary', 'btn-warning')
-        event.target.className = event.target.className.replace('btn-danger', 'btn-danger')
-        event.target.innerHTML = '…'
-        event.preventDefault()
-        event.stopPropagation()
+      this.isFirstTimeUser = this.$store.state.isFirstTimeUser
+      this.fieldName = this.$store.state.userName
+      this.fieldEmail = this.$store.state.userEmail
+      this.fieldDataUrl = this.$store.state.dataUpdateServiceURL
+      this.fieldApiKey = this.$store.state.apiKey
+      this.fieldAdminPassword = this.$store.state.adminPassword
+    }
 
-        if (this.validateInputs(event)) {
-          const configObj = {
-            userName: this.fieldName,
-            userEmail: this.fieldEmail,
-            dataUrl: this.fieldDataUrl,
-            apiKey: this.fieldApiKey,
-            adminPassword: this.fieldAdminPassword
-          }
-          // save the configuration inputs to the local flat file
-          log.info('writing the following app configuration', configObj)
-          admin.writeConfigFileDetails(configObj)
+    checkInputs(event: any) {
+      event.target.className = event.target.className.replace('btn-primary', 'btn-warning')
+      event.target.className = event.target.className.replace('btn-danger', 'btn-danger')
+      event.target.innerHTML = '…'
+      event.preventDefault()
+      event.stopPropagation()
 
-          // store config items in state
-          admin.initializeStateFromConfig()
-
-          // now see if the data URL and API key provided actually work.
-          admin.checkDataConnectionReady((res, err) => {
-            if (err) {
-              this.errorMsg = err.error
-              this.successMsg = ''
-              event.target.className = event.target.className.replace('btn-warning', 'btn-danger')
-              event.target.innerHTML = 'Save and test inputs'
-            } else {
-              this.errorMsg = ''
-              this.successMsg = 'Congratulations, your app is now configured! Now recommend clicking "update data" at the top left and making sure you have the latest data.'
-              event.target.className = event.target.className.replace('btn-warning', 'btn-success')
-              event.target.className = event.target.className.replace('btn-danger', 'btn-success')
-              event.target.innerHTML = 'Save and test inputs'
-            }
-          })
-        } else {
-          event.target.className = event.target.className.replace('btn-warning', 'btn-danger')
-          event.target.innerHTML = 'Save and test inputs'
+      if (this.validateInputs(event)) {
+        const configObj: AppConfig = {
+          userName: this.fieldName,
+          userEmail: this.fieldEmail,
+          dataUrl: this.fieldDataUrl,
+          apiKey: this.fieldApiKey,
+          adminPassword: this.fieldAdminPassword
         }
-      },
-      validateInputs(event) {
-        const forms = document.getElementsByClassName('needs-validation')
-        let formValid = true
-        Array.prototype.filter.call(forms, form => {
-          form.classList.add('was-validated')
-          if (form.checkValidity() === false) {
-            formValid = false
+        // save the configuration inputs to the local flat file
+        log.info('writing the following app configuration', configObj)
+        admin.writeConfigFileDetails(configObj)
+
+        // store config items in state
+        admin.initializeStateFromConfig()
+
+        // now see if the data URL and API key provided actually work.
+        admin.checkDataConnectionReady((res, err) => {
+          if (err) {
+            this.errorMsg = err.error
+            this.successMsg = ''
+            event.target.className = event.target.className.replace('btn-warning', 'btn-danger')
+            event.target.innerHTML = 'Save and test inputs'
+          } else {
+            this.errorMsg = ''
+            this.successMsg = 'Congratulations, your app is now configured! Now recommend clicking "update data" at the top left and making sure you have the latest data.'
+            event.target.className = event.target.className.replace('btn-warning', 'btn-success')
+            event.target.className = event.target.className.replace('btn-danger', 'btn-success')
+            event.target.innerHTML = 'Save and test inputs'
           }
         })
-        return formValid
+      } else {
+        event.target.className = event.target.className.replace('btn-warning', 'btn-danger')
+        event.target.innerHTML = 'Save and test inputs'
       }
+    }
+
+    validateInputs(event: any) {
+      const forms = document.getElementsByClassName('needs-validation')
+      let formValid = true
+      Array.prototype.filter.call(forms, (form: any) => {
+        form.classList.add('was-validated')
+        if (form.checkValidity() === false) {
+          formValid = false
+        }
+      })
+      return formValid
     }
   }
 </script>

@@ -107,9 +107,9 @@ export default{
         // call the child tab's getPresentations function to refresh the list of presentations.
         // This matters e.g. when a new presentation has been created in "edit presentation", then the user comes back to "manage presentation".
         // We want the new presentation to appear
-        if (this.vues[tab.index].$children[0].getPresentations) {
-          this.vues[tab.index].$children[0].getPresentations()
-        }
+        // if (this.vues[tab.index].$children[0].getPresentations) {
+        //   this.vues[tab.index].$children[0].getPresentations()
+        // }
       }
     }
   }

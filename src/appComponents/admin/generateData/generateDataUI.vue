@@ -104,16 +104,25 @@
 
 
 
-<script>
+<script lang="ts">
   import Vue from 'vue'
-  import {mapGetters} from 'vuex'
-  import dataSourceConfig from '@/configuration/dataSourceConfig.json'
-  import dataSourceConfigSchema from '@/configuration/dataSourceConfigSchema.json'
+  import { mapGetters } from 'vuex'
+  import Component from 'vue-class-component'
   import GenerateDataForOneDataSourceUI from './generateDataForOneDataSourceUI.vue'
   import PublishDataForOneDataSourceUI from './publishDataForOneDataSourceUI.vue'
 
+  import { DataSourceProgress} from '@/appComponents/admin/generateData/queryRunnerFileWriter.ts'
+
+  import AppVue from '@/AppVue'
+  import { DataSourceConfigGlobalInput, DataSource} from '@/configuration/configurationTypes'
+
+  const dataSourceConfig = require('@/configuration/dataSourceConfig.json')
+  const dataSourceConfigSchema = require('@/configuration/dataSourceConfigSchema.json')
+  // import dataSourceConfig from '@/configuration/dataSourceConfig.json'
+  // import dataSourceConfigSchema from '@/configuration/dataSourceConfigSchema.json'
+
   import log from 'electron-log'
-  import jquery from 'jquery'
+  const jquery = require('jquery')  // import {jquery} from 'jquery'
   const $ = jquery
   import 'bootstrap-datepicker'
 
@@ -123,38 +132,37 @@
 
   const validate = require('jsonschema').validate
 
-  export default {
+  @Component({
     components: {
       GenerateDataForOneDataSourceUI, PublishDataForOneDataSourceUI
-    },
-    data() {
-      return {
-        globalInputs: dataSourceConfig.globalInputs,
-        dataSources: dataSourceConfig.dataSources,
-        dataConfigValidationErrors: [],
+    }
+  })
+  export default class GenerateDataUI extends AppVue {
 
-        isRunningAllQueries: false,
-        runDataSource: false,
-        runAllQueriesCount: 0,
-        runAllQueriesSuccessCount: 0,
-        runAllQueriesFailCount: 0,
-        dataUpdateProgressSuccess: 0,
-        dataUpdateProgressFail: 0,
 
-        isPublishingAllDataSources: false,
-        publishDataSource: false,
-        publishAllDataSourcesCount: 0,
-        publishAllDataSourcesSuccessCount: 0,
-        publishAllDataSourcesFailCount: 0,
-        publishUpdateProgressSuccess: 0,
-        publishUpdateProgressFail: 0
-      }
-    },
-    computed: {
-      ...mapGetters({
-          fullAppDataStoreDirectoryPath: 'fullAppDataStoreDirectoryPath'
-        })
-    },
+    globalInputs: DataSourceConfigGlobalInput[] = dataSourceConfig.globalInputs
+    dataSources: DataSource[] = dataSourceConfig.dataSources
+    dataConfigValidationErrors: any[] = [] // should type this
+
+    isRunningAllQueries: boolean = false
+    runDataSource: boolean = false
+    runAllQueriesCount: number = 0
+    runAllQueriesSuccessCount: number = 0
+    runAllQueriesFailCount: number = 0
+    dataUpdateProgressSuccess: number = 0
+    dataUpdateProgressFail: number = 0
+
+    isPublishingAllDataSources: boolean = false
+    publishDataSource: boolean = false
+    publishAllDataSourcesCount: number = 0
+    publishAllDataSourcesSuccessCount: number = 0
+    publishAllDataSourcesFailCount: number = 0
+    publishUpdateProgressSuccess: number = 0
+    publishUpdateProgressFail: number = 0
+
+    fullAppDataStoreDirectoryPath = this.$store.getters.fullAppDataStoreDirectoryPath
+
+
     mounted() {
       // be sure the dataSourceConfig validates
       this.dataConfigValidationErrors = validate(dataSourceConfig, dataSourceConfigSchema).errors
@@ -178,102 +186,100 @@
         todayBtn: 'linked'
       })
 
-    },
+    }
 
 
-    methods: {
-      queryAndWriteAllDataSources() {
-        this.runAllQueriesCount = 0
-        this.dataUpdateProgressSuccess = 0
-        this.runAllQueriesSuccessCount = 0
-        this.dataUpdateProgressFail = 0
-        this.runAllQueriesFailCount = 0
-        this.runDataSource = true // changing this triggers the queries to run in the subcomponent
-        this.isRunningAllQueries = true
+    queryAndWriteAllDataSources() {
+      this.runAllQueriesCount = 0
+      this.dataUpdateProgressSuccess = 0
+      this.runAllQueriesSuccessCount = 0
+      this.dataUpdateProgressFail = 0
+      this.runAllQueriesFailCount = 0
+      this.runDataSource = true // changing this triggers the queries to run in the subcomponent
+      this.isRunningAllQueries = true
 
-        document.getElementById('generateDataProgressBarSuccess').classList.add('progress-bar-animated')
-        document.getElementById('generateDataProgressBarFail').classList.add('progress-bar-animated')
-      },
+      document.getElementById('generateDataProgressBarSuccess')!.classList.add('progress-bar-animated')
+      document.getElementById('generateDataProgressBarFail')!.classList.add('progress-bar-animated')
+    }
 
-      // subcomponent emits event when data is run that gets us here.  We should *always* get here (failed or not)
-      //  this allows us to re-enable the 'run all' button.
-      //  but we can check the status of each request, so can provide top-level feedback
-      oneDataRunComplete(completedDataSource) {
-        // only update the progress bar if we're running ALL the datasource.
-        // this function/event is triggered even when one dataSource is run independently (so can react to the UI here if we want)
-        if (this.isRunningAllQueries) {
-          this.runAllQueriesCount++
-          // update the progress bar
-          if (completedDataSource.succeeded) {
-            this.runAllQueriesSuccessCount++
-            this.dataUpdateProgressSuccess = 100 * this.runAllQueriesSuccessCount / this.dataSources.length
-            document.getElementById('generateDataProgressBarSuccess').innerHTML = this.runAllQueriesSuccessCount
-          } else {
-            this.runAllQueriesFailCount++
-            this.dataUpdateProgressFail = 100 * this.runAllQueriesFailCount / this.dataSources.length
-            document.getElementById('generateDataProgressBarFail').innerHTML = this.runAllQueriesFailCount
-            log.info('FAILED running datasource', completedDataSource.name)
-          }
-
-
-          // if complete, reset, allowing the "run everything" button to be clicked again
-          if (this.runAllQueriesCount === this.dataSources.length) {
-            this.runDataSource = false
-            this.isRunningAllQueries = false
-            document.getElementById('generateDataProgressBarSuccess').classList.remove('progress-bar-animated')
-            document.getElementById('generateDataProgressBarFail').classList.remove('progress-bar-animated')
-          }
+    // subcomponent emits event when data is run that gets us here.  We should *always* get here (failed or not)
+    //  this allows us to re-enable the 'run all' button.
+    //  but we can check the status of each request, so can provide top-level feedback
+    oneDataRunComplete(completedDataSource: DataSourceProgress) {
+      // only update the progress bar if we're running ALL the datasource.
+      // this function/event is triggered even when one dataSource is run independently (so can react to the UI here if we want)
+      if (this.isRunningAllQueries) {
+        this.runAllQueriesCount++
+        // update the progress bar
+        if (completedDataSource.succeeded) {
+          this.runAllQueriesSuccessCount++
+          this.dataUpdateProgressSuccess = 100 * this.runAllQueriesSuccessCount / this.dataSources.length
+          document.getElementById('generateDataProgressBarSuccess')!.innerHTML = this.runAllQueriesSuccessCount.toString()
+        } else {
+          this.runAllQueriesFailCount++
+          this.dataUpdateProgressFail = 100 * this.runAllQueriesFailCount / this.dataSources.length
+          document.getElementById('generateDataProgressBarFail')!.innerHTML = this.runAllQueriesFailCount.toString()
+          log.info('FAILED running datasource', completedDataSource.name)
         }
-      },
 
 
-
-      publishAllDataSources() {
-        this.publishAllDataSourcesCount = 0
-        this.publishAllDataSourcesSuccessCount = 0
-        this.publishUpdateProgressSuccess = 0
-        this.publishAllDataSourcesFailCount = 0
-        this.publishUpdateProgressFail = 0
-
-        this.publishDataSource = true // changing this triggers the queries to run in the subcomponent
-        this.isPublishingAllDataSources = true
-
-        document.getElementById('publishDataProgressBarSuccess').classList.add('progress-bar-animated')
-        document.getElementById('publishDataProgressBarFail').classList.add('progress-bar-animated')
-      },
-
-
-      onePublishComplete(completedDataSource) {
-        // only update the progress bar if we're running ALL the datasource.
-        // this function/event is triggered even when one dataSource is run independently (so can react to the UI here if we want)
-        if (this.isPublishingAllDataSources) {
-          this.publishAllDataSourcesCount++
-          // update the progress bar
-          if (completedDataSource.publishSucceeded) {
-            this.publishAllDataSourcesSuccessCount++
-            this.publishUpdateProgressSuccess = 100 * this.publishAllDataSourcesSuccessCount / this.dataSources.length
-            document.getElementById('publishDataProgressBarSuccess').innerHTML = this.publishAllDataSourcesSuccessCount
-          } else {
-            this.publishAllDataSourcesFailCount++
-            this.publishUpdateProgressFail = 100 * this.publishAllDataSourcesFailCount / this.dataSources.length
-            document.getElementById('publishDataProgressBarFail').innerHTML = this.publishAllDataSourcesFailCount
-          }
-
-
-          // if complete, reset, allowing the "run everything" button to be clicked again
-          if (this.publishAllDataSourcesCount === this.dataSources.length) {
-            this.publishDataSource = false
-            this.isPublishingAllDataSources = false
-            document.getElementById('publishDataProgressBarSuccess').classList.remove('progress-bar-animated')
-            document.getElementById('publishDataProgressBarFail').classList.remove('progress-bar-animated')
-          }
+        // if complete, reset, allowing the "run everything" button to be clicked again
+        if (this.runAllQueriesCount === this.dataSources.length) {
+          this.runDataSource = false
+          this.isRunningAllQueries = false
+          document.getElementById('generateDataProgressBarSuccess')!.classList.remove('progress-bar-animated')
+          document.getElementById('generateDataProgressBarFail')!.classList.remove('progress-bar-animated')
         }
       }
-
-
-
-
     }
+
+
+
+    publishAllDataSources() {
+      this.publishAllDataSourcesCount = 0
+      this.publishAllDataSourcesSuccessCount = 0
+      this.publishUpdateProgressSuccess = 0
+      this.publishAllDataSourcesFailCount = 0
+      this.publishUpdateProgressFail = 0
+
+      this.publishDataSource = true // changing this triggers the queries to run in the subcomponent
+      this.isPublishingAllDataSources = true
+
+      document.getElementById('publishDataProgressBarSuccess')!.classList.add('progress-bar-animated')
+      document.getElementById('publishDataProgressBarFail')!.classList.add('progress-bar-animated')
+    }
+
+
+    onePublishComplete(completedDataSource: any) {
+      // only update the progress bar if we're running ALL the datasource.
+      // this function/event is triggered even when one dataSource is run independently (so can react to the UI here if we want)
+      if (this.isPublishingAllDataSources) {
+        this.publishAllDataSourcesCount++
+        // update the progress bar
+        if (completedDataSource.publishSucceeded) {
+          this.publishAllDataSourcesSuccessCount++
+          this.publishUpdateProgressSuccess = 100 * this.publishAllDataSourcesSuccessCount / this.dataSources.length
+          document.getElementById('publishDataProgressBarSuccess')!.innerHTML = this.publishAllDataSourcesSuccessCount.toString()
+        } else {
+          this.publishAllDataSourcesFailCount++
+          this.publishUpdateProgressFail = 100 * this.publishAllDataSourcesFailCount / this.dataSources.length
+          document.getElementById('publishDataProgressBarFail')!.innerHTML = this.publishAllDataSourcesFailCount.toString()
+        }
+
+
+        // if complete, reset, allowing the "run everything" button to be clicked again
+        if (this.publishAllDataSourcesCount === this.dataSources.length) {
+          this.publishDataSource = false
+          this.isPublishingAllDataSources = false
+          document.getElementById('publishDataProgressBarSuccess')!.classList.remove('progress-bar-animated')
+          document.getElementById('publishDataProgressBarFail')!.classList.remove('progress-bar-animated')
+        }
+      }
+    }
+
+
+
+
   }
 
 

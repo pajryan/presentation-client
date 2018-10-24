@@ -116,6 +116,8 @@ export function initializeStateFromConfig(): void {
   // store key values in state
   if (config.adminPassword && passwords.adminPassword === config.adminPassword) {
     store.commit('setIsAdminUser', true)
+  } else {
+    store.commit('setIsAdminUser', false)
   }
 
   // definitionally (because config exists), is not a first time user
@@ -183,7 +185,7 @@ export function getActivePresentation(): Presentation {
 }
 
 
-interface PageItemWithIndex extends PageItem {
+export interface PageItemWithIndex extends PageItem {
   sectionIndex: number
   pageIndex: number
 }

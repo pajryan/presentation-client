@@ -94,150 +94,152 @@
 
 
 
-<script>
+<script lang="ts">
   import Vue from 'vue'
+  import Component from 'vue-class-component'
   import * as d3 from 'd3'
   import * as admin from '@/appComponents/admin/adminFunctions.ts'
   import log from 'electron-log'
 
+  import {DataLogFileItem, ErrorObject} from '@/configuration/configurationTypes'
+
   const formatDate = d3.timeFormat('%m/%d/%y')
   const parseDate = d3.timeParse('%m/%d/%y')
 
-  export default {
-    props: ['adminObj'],
-    data() {
-      return {
-        updateButtonDisabled: false,
-        isOnline: true,
-        updateReady: 0, // 0 = not sure yet, -1 is no update available, 1 = update available
-        numberOfFilesToUpdate: 0,
-        updatePercentComplete: 0,
-        updatePercentFailed: 0,
-        amFetchingData: false,
-        fetchDataComplete: false,
-        msg: '',
-        fetchDataCompleteMsg: '',
-        arrayOfErrors: [],
+  @Component
+  export default class UpdateDataUI extends Vue {
+    updateButtonDisabled: boolean = false
+    isOnline: boolean = true
+    updateReady: number =  0 // 0 = not sure yet, -1 is no update available, 1 = update available
+    numberOfFilesToUpdate: number =  0
+    updatePercentComplete: number =  0
+    updatePercentFailed: number =  0
+    amFetchingData: boolean = false
+    fetchDataComplete: boolean = false
+    msg: string = ''
+    fetchDataCompleteMsg: string = ''
+    arrayOfErrors: DataLogFileItem[] = []
 
-        showAdvanced: false,
-        dataAfterDate: formatDate(new Date()),
-        deleteMsg: '',
+    showAdvanced: boolean = false
+    dataAfterDate: string =  formatDate(new Date())
+    deleteMsg: string =  ''
 
-        dataUpdater: null
-      }
-    },
-    mounted() {
+    dataUpdater: admin.GetDataUpdateFilesAsOf
+
+    constructor() {
+      super()
+      // can set initial states here
       this.dataUpdater = new admin.GetDataUpdateFilesAsOf(this.checkForDataUpdatesResult, this.fetchDataProgress, this.fetchDataResult, this.fetchDataError)
-    },
-    methods: {
-      checkForUpdate() {
-        this.updateReady = 0
+    }
+
+    // mounted() {
+    //   // don't know if mounted is still a thing? seems like constructor() might do that?
+    // }
+    checkForUpdate() {
+      this.updateReady = 0
+      this.updateButtonDisabled = true
+      this.dataUpdater.checkStatus()
+      // admin.checkForDataUpdates(this.checkForDataUpdatesResult, null)  // returns {isOnline:true/false, dataAvailable:true/false, message:<ifFalse>{text:.., severity:...</if>}
+    }
+
+    checkForDataUpdatesResult(isOnline: boolean, dataAvailable: boolean, message?: string) {
+      this.arrayOfErrors = []
+      this.fetchDataComplete = false
+      this.updateButtonDisabled = false
+      this.isOnline = isOnline
+      this.msg = message ? message : ''
+      if (!this.isOnline) {   // we're not online (or can't connect to the service.  get out.)
+        return
+      }
+
+      if (dataAvailable) {
+        this.updateReady = 1   // need to fetch data
         this.updateButtonDisabled = true
-        this.dataUpdater.checkStatus()
-        // admin.checkForDataUpdates(this.checkForDataUpdatesResult, null)  // returns {isOnline:true/false, dataAvailable:true/false, message:<ifFalse>{text:.., severity:...</if>}
-      },
-
-      checkForDataUpdatesResult(isOnline, dataAvailable, message) {
-        this.arrayOfErrors = []
-        this.fetchDataComplete = false
-        this.updateButtonDisabled = false
-        this.isOnline = isOnline
-        this.msg = message ? message : ''
-        if (!this.isOnline) {   // we're not online (or can't connect to the service.  get out.)
-          return
-        }
-
-        if (dataAvailable) {
-          this.updateReady = 1   // need to fetch data
-          this.updateButtonDisabled = true
-        } else {
-          this.updateReady = -1  // data is up to date
-        }
-      },
-
-      fetchData() {
-        this.amFetchingData = true
-        this.numberOfFilesToUpdate = 0
-        this.dataUpdater.checkStatusAndGetFiles()
-        // const fu = new admin.GetDataUpdateFilesAsOf(this.fetchDataProgress, this.fetchDataResult)
-      },
-      fetchDataProgress(percentComplete, percentFailed, totalNumber) { // 0 to 100
-        this.numberOfFilesToUpdate = totalNumber
-        this.updatePercentComplete = percentComplete
-        this.updatePercentFailed = percentFailed
-      },
-      fetchDataResult(arrayOfErrors) {
-        this.updateButtonDisabled = false
-        this.fetchDataComplete = true
-        this.amFetchingData = false
-        if (arrayOfErrors && arrayOfErrors.length > 0) {
-          this.arrayOfErrors = arrayOfErrors
-          log.error('done fetching data, but some files not complete', arrayOfErrors)
-          this.fetchDataCompleteMsg = arrayOfErrors.length + ' data file(s) could not be updated.'
-        } else {
-          this.fetchDataCompleteMsg = 'Data update complete.'
-        }
-      },
-      fetchDataError(error) {
-        log.error('error updating data', error)
-      },
-      getDataAsOf() {
-        const onAfterDate = parseDate(document.getElementById('dataAfterDateAdd').value)
-        this.dataAfterDate = formatDate(onAfterDate)
-        this.updateReady = 0
-        this.updateButtonDisabled = true
-        this.adminObj.checkForDataUpdates(this.checkForDataUpdatesResult, onAfterDate)
-      },
-      deleteData() {
-        document.getElementById('deleteDataModal').style.display = 'block'
-      },
-      deleteDataDecline() {
-        document.getElementById('deleteDataModal').style.display = 'none'
-      },
-      deleteDataAccept() {
-        document.getElementById('deleteDataModal').style.display = 'none'
-        this.adminObj.deleteData(err => {
-          if (err) {
-            log.error(err)
-            this.deleteMsg = 'error deleting files'
-          } else {
-            this.deleteMsg = 'files deleted'
-          }
-          setTimeout(() => { this.deleteMsg = '' }, 3000)
-        })
+      } else {
+        this.updateReady = -1  // data is up to date
       }
     }
+
+    fetchData() {
+      this.amFetchingData = true
+      this.numberOfFilesToUpdate = 0
+      this.dataUpdater.checkStatusAndGetFiles()
+    }
+    fetchDataProgress(percentComplete: number, percentFailed: number, totalNumber: number) { // 0 to 100
+      this.numberOfFilesToUpdate = totalNumber
+      this.updatePercentComplete = percentComplete
+      this.updatePercentFailed = percentFailed
+    }
+    fetchDataResult(arrayOfErrors: DataLogFileItem[]) {
+      this.updateButtonDisabled = false
+      this.fetchDataComplete = true
+      this.amFetchingData = false
+      if (arrayOfErrors && arrayOfErrors.length > 0) {
+        this.arrayOfErrors = arrayOfErrors
+        log.error('done fetching data, but some files not complete', arrayOfErrors)
+        this.fetchDataCompleteMsg = arrayOfErrors.length + ' data file(s) could not be updated.'
+      } else {
+        this.fetchDataCompleteMsg = 'Data update complete.'
+      }
+    }
+    fetchDataError(error: ErrorObject) {
+      log.error('error updating data', error)
+    }
+  //   getDataAsOf() {
+  //     // const onAfterDate = parseDate(document.getElementById('dataAfterDateAdd').value)
+  //     // this.dataAfterDate = formatDate(onAfterDate)
+  //     // this.updateReady = 0
+  //     // this.updateButtonDisabled = true
+  //     // this.adminObj.checkForDataUpdates(this.checkForDataUpdatesResult, onAfterDate)
+  //   }
+  //   deleteData() {
+  //     // document.getElementById('deleteDataModal').style.display = 'block'
+  //   }
+  //   deleteDataDecline() {
+  //     // document.getElementById('deleteDataModal').style.display = 'none'
+  //   }
+  //   deleteDataAccept() {
+  //     // document.getElementById('deleteDataModal').style.display = 'none'
+  //     // this.adminObj.deleteData(err => {
+  //     //   if (err) {
+  //     //     log.error(err)
+  //     //     this.deleteMsg = 'error deleting files'
+  //     //   } else {
+  //     //     this.deleteMsg = 'files deleted'
+  //     //   }
+  //     //   setTimeout(() => { this.deleteMsg = '' }, 3000)
+  //     // })
+  //   }
   }
 
 
-  
 </script>
 
 <style scoped lang="scss">
-  .updateContainer{
-    margin-top: 30px;
-  }
+//   .updateContainer{
+//     margin-top: 30px;
+//   }
 
-  #errorList{
-    max-height: 100px;
-    overflow: scroll;
-  }
+//   #errorList{
+//     max-height: 100px;
+//     overflow: scroll;
+//   }
 
-  // force the scrolbar to show up
-  #errorList::-webkit-scrollbar {
-    -webkit-appearance: none;
-    width: 7px;
-  }
-  #errorList::-webkit-scrollbar-thumb {
-    border-radius: 4px;
-    background-color: rgba(0,0,0,.5);
-    -webkit-box-shadow: 0 0 1px rgba(255,255,255,.5);
-  }
+//   // force the scrolbar to show up
+//   #errorList::-webkit-scrollbar {
+//     -webkit-appearance: none;
+//     width: 7px;
+//   }
+//   #errorList::-webkit-scrollbar-thumb {
+//     border-radius: 4px;
+//     background-color: rgba(0,0,0,.5);
+//     -webkit-box-shadow: 0 0 1px rgba(255,255,255,.5);
+//   }
 
-  .advancedSection{
-    margin-top: 40px;
-    padding-top: 20px;
-    padding-bottom: 20px;
-    border-top: 1px solid #dee2e6;
-  }
+//   .advancedSection{
+//     margin-top: 40px;
+//     padding-top: 20px;
+//     padding-bottom: 20px;
+//     border-top: 1px solid #dee2e6;
+//   }
 </style>

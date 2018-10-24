@@ -39,51 +39,71 @@
 
 
 
-<script>
+<script lang="ts">
   import Vue from 'vue'
-  import {mapGetters} from 'vuex'
+  import { mapGetters } from 'vuex'
+  import Component from 'vue-class-component'
+  import AppVue from '@/AppVue'
+  import { Prop, Watch } from 'vue-property-decorator'
+
   import * as admin from '@/appComponents/admin/adminFunctions.ts'
-  import {QueryRunnerFileWriter} from '@/appComponents/admin/generateData/queryRunnerFileWriter.ts'
+  import { PageItemWithIndex } from '@/appComponents/admin/adminFunctions.ts'
+  import { QueryRunnerFileWriter, DataSourceProgress, SuccessObj} from '@/appComponents/admin/generateData/queryRunnerFileWriter.ts'
   import log from 'electron-log'
   const dataSourceConfigImport = require('@/configuration/dataSourceConfig')
   const componentRunner = require('@/pageComponents/_componentRunner.js')
 
   import path from 'path'
-  
-  import dataQualityControlUI from './dataQualityControlUI.vue'
 
-  export default {
+  import dataQualityControlUI from './dataQualityControlUI.vue'
+  import { DataSource } from '@/configuration/configurationTypes'
+
+  @Component({
     components: {
       dataQualityControlUI
-    },
+    }
+    // ,
+    // props: {
+    //   itemDataSourceConfig: {},
+    //   showOtherComponentsThatUseThisData: true
+    //   // 'itemDataSourceConfig', 'showOtherComponentsThatUseThisData',   // always used
+    //   // 'autoRun',  // if true, component runs automatically (don't need to click the button) - this allows me to run from outside
+    //   // 'pageItems', 'componentIndex' // used only when running from the page itself (I think - haven't authored yet)
+    // }
+  })
+  export default class GenerateDataForOneDataSource extends AppVue {
 
-    // componentIndex is the index of the component on the page that this whole section is reponsible for updating. we'll use it when refreshing components
-    props: [
-      'itemDataSourceConfig', 'showOtherComponentsThatUseThisData',   // always used
-      'autoRun',  // if true, component runs automatically (don't need to click the button) - this allows me to run from outside
-      'pageItems', 'componentIndex' // used only when running from the page itself (I think - haven't authored yet)
-    ],
 
-    data() {
-      return {
-        dataSource: this.itemDataSourceConfig,
-        activePresentationComponents: []
-      }
-    },
-    computed: {
-      ...mapGetters({
-          fullAppDataStoreDirectoryPath: 'fullAppDataStoreDirectoryPath'
-        })
-    },
-    watch: {
-      /*tslint:disable*/
-      autoRun: function(newValue, oldValue) { // DO NOT change this to an arrow function.  It changes the scope of "this". https://vuejs.org/v2/api/#watch
-      /*tslint:enable*/
+     // always used
+    @Prop() itemDataSourceConfig!: DataSource // = {name: '', isStoredProcedure: false, query: '', sqlParameters: [], resultHandling: []}
+    @Prop() showOtherComponentsThatUseThisData!: boolean
+    // if true, component runs automatically (don't need to click the button) - this allows me to run from outside
+    @Prop() autoRun!: boolean
+    // used only when running from the page itself (I think - haven't authored yet)
+    // @Prop() pageItems
+    // @Prop() componentIndex
+
+    dataSource: DataSourceProgress =  this.itemDataSourceConfig as DataSourceProgress
+    activePresentationComponents: PageItemWithIndex[] = []
+    fullAppDataStoreDirectoryPath = this.$store.getters.fullAppDataStoreDirectoryPath
+
+    @Watch('autoRun')
+      function(newValue: boolean, oldValue: boolean) {
         if (newValue) {
           this.queryAndWriteOneDataSource(this.dataSource)
         }
       }
-    },
+
+    // watch: {
+    //   /*tslint:disable*/
+    //   autoRun: function(newValue, oldValue) { // DO NOT change this to an arrow function.  It changes the scope of "this". https://vuejs.org/v2/api/#watch
+    //   /*tslint:enable*/
+    //     if (newValue) {
+    //       this.queryAndWriteOneDataSource(this.dataSource)
+    //     }
+    //   }
+    // }
+
     mounted() {
       // use Vue.set to add new keys (https://vuejs.org/2016/02/06/common-gotchas/)
       Vue.set(this.dataSource, 'isRunning', false)
@@ -97,72 +117,70 @@
       // capture the components used in the active presentation. We'll try to open these up later.
       this.activePresentationComponents = admin.getActivePresentationItemOfType('component')
 
-    },
-    methods: {
-      /*
-        Important Note:
-          Some data has the potential to be quite large. It's tempting to just manage large data by streaming directly to a file.
-          However, the issue will simply arise later when trying to *load* that data to a component.
+    }
 
-          So this dataGeneration WILL bring the data into memory (json object), then write that object to a file
-          This allows me to capture "large data request problems" *here* rather than when a user tries to render that same data
-      */
-      queryAndWriteOneDataSource(dataSource, callback = this.runResult) {
-        dataSource.isRunning = true
-        dataSource.attempted = true
-        dataSource.successMsg = null
-        dataSource.errorMsg = null
-        const qr = new QueryRunnerFileWriter(dataSource, callback)
-      },
+    /*
+      Important Note:
+        Some data has the potential to be quite large. It's tempting to just manage large data by streaming directly to a file.
+        However, the issue will simply arise later when trying to *load* that data to a component.
 
+        So this dataGeneration WILL bring the data into memory (json object), then write that object to a file
+        This allows me to capture "large data request problems" *here* rather than when a user tries to render that same data
+    */
+    queryAndWriteOneDataSource(dataSource: DataSourceProgress, callback = this.runResult) {
+      dataSource.isRunning = true
+      dataSource.attempted = true
+      dataSource.successMsg = undefined
+      dataSource.errorMsg = undefined
+      const qr = new QueryRunnerFileWriter(dataSource, callback)
+    }
 
-      // the result of running the queries and generating files
-      runResult(result, dataSource) {
-        dataSource.isRunning = false
-        // we get here even if we've had an error. So check that the error message hasn't already been populated
-        if (result.success && dataSource.errorMsg == null) {
-          dataSource.succeeded = true
-          dataSource.successMsg = 'received ' + result.result.length + ' record set(s), with a total of ' + result.result.reduce((p, c) => p + c) + ' records. Wrote ' + result.filesWritten + ' file(s) '
-          dataSource.resultHandling.forEach(rh => {
-            const filename = rh.filename
-            const url = '/#/displayDataFile/' + filename    // use /displayDataFile route to open a new page to DisplayDataFile.vue
-            dataSource.successMsg += ' : <a href="' + url + '" target="_blank">' + filename + '</a> <br />'
-          })
-        } else if (result.error != null) {
-          dataSource.errorMsg = '' + result.error
-        }
+    // the result of running the queries and generating files
+    runResult(result: SuccessObj, dataSource: DataSourceProgress) {
+      dataSource.isRunning = false
+      // we get here even if we've had an error. So check that the error message hasn't already been populated
+      if (result.success && dataSource.errorMsg == null) {
+        dataSource.succeeded = true
+        dataSource.successMsg = 'received ' + result.result.length + ' record set(s), with a total of ' + result.result.reduce((p: number, c: number) => p + c) + ' records. Wrote ' + result.filesWritten + ' file(s) '
+        dataSource.resultHandling.forEach(rh => {
+          const filename = rh.filename
+          const url = '/#/displayDataFile/' + filename    // use /displayDataFile route to open a new page to DisplayDataFile.vue
+          dataSource.successMsg += ' : <a href="' + url + '" target="_blank">' + filename + '</a> <br />'
+        })
+      } else if (result.error != null) {
+        dataSource.errorMsg = '' + result.error
+      }
 
-        this.$emit('dataRunComplete', this.dataSource)
+      this.$emit('dataRunComplete', this.dataSource)
 
-        // would like to refresh the related component(s)
-        //  NOTE: have authored this component to be run from generateDataUI.vue. So not doing this yet (?)
-        if (this.componentIndex) {
-          const itmToRefresh = this.pageItems[this.componentIndex]
-          const uiElemToRefresh = itmToRefresh.uiElem
-          // kill anything inside this UI component.  Note that I'm not properly removing the element
-          //  so i'm not removing event listeners etc.  I'm deeming this ok since this is an admin task, but:
-          //  TODO: Properly remove the contents of this item
-          uiElemToRefresh.innerHTML = ''
-          // Vue overwrites the element (see same in page.js). So give it a child div to work with
-          componentRunner.build(itmToRefresh, uiElemToRefresh.appendChild(document.createElement('div')), this.state)
-          // pass the datasource to the qa mechanism
-        }
-
-      },
-
-
-      beforeDestroy: () => {
-        window.removeEventListener('resize', this.resize)
-      },
-      resize(event) {
-        // deal with resizing here
-      },
+      // would like to refresh the related component(s)
+      //  NOTE: have authored this component to be run from generateDataUI.vue. So not doing this yet (?)
+      // if (this.componentIndex) {
+      //   const itmToRefresh = this.pageItems[this.componentIndex]
+      //   const uiElemToRefresh = itmToRefresh.uiElem
+      //   // kill anything inside this UI component.  Note that I'm not properly removing the element
+      //   //  so i'm not removing event listeners etc.  I'm deeming this ok since this is an admin task, but:
+      //   //  TODO: Properly remove the contents of this item
+      //   uiElemToRefresh.innerHTML = ''
+      //   // Vue overwrites the element (see same in page.js). So give it a child div to work with
+      //   componentRunner.build(itmToRefresh, uiElemToRefresh.appendChild(document.createElement('div')), this.state)
+      //   // pass the datasource to the qa mechanism
+      // }
 
     }
+
+
+    beforeDestroy() {
+      window.removeEventListener('resize', this.resize)
+    }
+
+    resize(event: any) {
+      // deal with resizing here
+    }
+
   }
 
 
-  
 </script>
 <style scoped lang="scss">
 

@@ -110,11 +110,11 @@ export interface DataSourceConfig {
   dataSources: DataSource[]
 }
 
-interface DataSourceMetadata {
+export interface DataSourceMetadata {
   dbDateFormat: string // this is the D3 format string used to parse dates from the DB. (e.g. d3.utcParse("%Y-%m-%dT%H:%M:%S.%LZ") )
 }
 
-interface DataSourceConfigGlobalInput {
+export interface DataSourceConfigGlobalInput {
   referenceId: string   // id used elsewhere in dataSourceConfig.dataSources to identify this input field
   label: string         // label that the user sees
   type: InputFieldType
@@ -170,6 +170,9 @@ export interface SparkPlusMetadataOnFieldsResult {
 }
 
 
+
+/**************************************/
+// individual Data FILES
 export interface DataFileFormat {
   metadata: DataFileFormatMetadata
   data: any
@@ -181,7 +184,8 @@ interface DataFileFormatMetadata {
 }
 
 
-// this file is stored on the SERVER side. So typing incoming JSON!
+/**************************************/
+// _dataLog.json file -- this file is stored on the SERVER side. So typing incoming JSON!
 export interface DataLogFile {
   dataLog: DataLogFileItem[]
 }
@@ -191,7 +195,8 @@ export interface DataLogFileItem {
   file: string        // e.g.  "DoubleNumber.json"
 }
 
-
+/**************************************/
+// generics
 export type CallbackObjErr = (result: any, error?: ErrorObject) => void
 
 export interface ErrorObject {
