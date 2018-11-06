@@ -16,7 +16,8 @@ module.exports = {
   },
   configureWebpack: {
     externals: {
-      "mssql": "require('mssql')" // this solves the nasty __webpack__ require (...) error
+      "mssql": "require('mssql')",        // this solves the nasty __webpack__ require (...) error
+      "archiver": "require('archiver')"   // solved problem where archiver thought the input was invalid. Similar: https://github.com/webpack/webpack/issues/1815
     }
   }
 }

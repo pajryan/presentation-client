@@ -1,9 +1,15 @@
 'use strict'
 
 const http = require('http')
-const fs = require('fs')
-const path = require('path')
+// const fs = require('fs')
+import fs from 'fs'
+import path from 'path'
+// const path = require('path')
 const request = require('request')
+
+// request is struggling to upload multi-part files getting a typescript error. So trying needle
+// https://www.npmjs.com/package/needle
+const needle = require('needle')
 const archiver = require('archiver')
 import log from 'electron-log'
 import store from '@/store'
@@ -313,27 +319,130 @@ export function dataServiceCall(endpoint: string, callback: CallbackObjErr) {
 
 
 
-//   publishDataArchive: (dataUrl: string, apiKey: string, archivePath: string, fileName: string, callback: CallbackStatusErr) => {
-//     const postData = {data: {apiKey}}
-//     const opts = { host: dataUrl, port: 80, path: '/saveDataArchive', method: 'POST', headers: {'Content-Type': 'image/png'}}
-//     if (dataUrl.indexOf('localhost') !== -1) {opts.port = 3000; opts.host = 'localhost'}
+export function publishDataArchive(dataUrl: string, apiKey: string, archivePath: string, fileName: string, callback: CallbackSuccessErr) {
+  const postData = {data: {apiKey}}
+  const opts = { host: dataUrl, port: 80, path: '/saveDataArchive', method: 'POST'} // , headers: {'Content-Type': 'image/png'}
+  if (dataUrl.indexOf('localhost') !== -1) {opts.port = 3000; opts.host = 'localhost'}
 
-//     const fullURL = dataUrl + 'saveDataArchive'
-//     const fullArchivePath = path.join(archivePath, fileName)
-//     log.info('posting (data archive) to (url) ', fullArchivePath, fullURL)
+  const fullURL = dataUrl + '/saveDataArchive'
+  const fullArchivePath = path.join(archivePath, fileName)
 
-//     const req = request.post(fullURL, (err: any, resp: any, body: any) => {
-//       if (err) {
-//         log.error('Error publishing data archive', err)
-//         callback({status: 400, error: err})
-//       } else {
-//         callback({status: 200})
-//       }
-//     })
 
-//     const form = req.form()
-//     form.append('file', fs.createReadStream(fullArchivePath))
-//   },
+  const req = http.request({
+    hostname : 'localhost',
+    port     : '3000',
+    path     : '/saveDataArchive?filename=gobbldygook',
+    method   : 'POST',
+  })
+
+  fs.createReadStream(fullArchivePath).pipe(req)
+
+
+  // const r = request.post({url: fullURL, form: {filename: 'gobbldygook}'}})
+  // // See http://nodejs.org/api/stream.html#stream_new_stream_readable_options
+  // // for more information about the highWaterMark
+  // // Basically, this will make the stream emit smaller chunks of data (ie. more precise upload state)
+  // const upload = fs.createReadStream(fullArchivePath, { highWaterMark: 1000 })
+
+  // upload.pipe(r)
+
+  // let uploadProgress = 0
+  // upload.on('data', (chunk) => {
+  //   uploadProgress += chunk.length
+  //   // console.log(new Date(), uploadProgress)
+  // })
+
+  // upload.on('error', (err) => {
+  //   log.error('Error uploading archive ', err)
+  //   callback(false, {error: err})
+  // })
+
+  // upload.on('end', (res) => {
+  //   callback(true)
+  // })
+
+
+
+
+
+
+
+
+  // needle.post(fullURL, fs.createReadStream(fullArchivePath), (err: any, resp: any, body: any) => {
+  //   console.log('err', err)
+  //   console.log('resp', resp)
+  //   console.log('body', body)
+  // })
+
+  // const data = {
+  //   foo: 'bar',
+  //   file: fullArchivePath
+  //   // image: { file: '/home/tomas/linux.png', content_type: 'image/png' }
+  // }
+  // needle.post(fullURL, data, { multipart: true }, (err: any, resp: any, body: any) => {
+  //   // needle will read the file and include it in the form-data as binary
+  //   console.log('err', err)
+  //   console.log('resp', resp)
+  //   console.log('body', body)
+  // })
+
+
+  // const data = {
+  //   file: fullArchivePath,
+  // }
+//   const data = {
+//     apiKey,
+//     zip: { file: fullArchivePath, content_type: 'application/zip' }
+//   }
+
+// // content_type: 'application/zip'
+//   needle.post(fullURL, data, {
+//       multipart: true
+//   }, (err: any, result: any) => {
+//       console.log('err', err)
+//       console.log('result', result)
+//   })
+
+  // const buffer = fs.readFileSync(fullArchivePath)
+  // const data = {
+  //   zip_file: {
+  //     buffer,
+  //     filename: 'mypackage.zip',
+  //     content_type: 'application/octet-stream'
+  //   }
+  // }
+
+  // needle.post(fullURL, data, { multipart: true }, (err: any, resp: any, body: any) => {
+  //   // if you see, when using buffers we need to pass the filename for the multipart body.
+  //   // you can also pass a filename when using the file path method, in case you want to override
+  //   // the default filename to be received on the other end.
+  //   console.log('err', err)
+  //   console.log('resp', resp)
+  //   console.log('body', body)
+  // })
+
+
+  // below used to work (prior to moving to typescript etc...)
+  // const postData = {data: {apiKey}}
+  // const opts = { host: dataUrl, port: 80, path: '/saveDataArchive', method: 'POST'} // , headers: {'Content-Type': 'image/png'}
+  // if (dataUrl.indexOf('localhost') !== -1) {opts.port = 3000; opts.host = 'localhost'}
+
+  // const fullURL = dataUrl + '/saveDataArchive'
+  // const fullArchivePath = path.join(archivePath, fileName)
+  // log.info('posting (data archive) to (url) ', fullArchivePath, fullURL)
+
+  // const req = request.post(fullURL, (err: any, resp: any, body: any) => {
+  //   if (err) {
+  //     log.error('Error publishing data archive', err)
+  //     callback(false, {error: err})
+  //   } else {
+  //     callback(true)
+  //   }
+  // })
+
+  // const form = req.form()
+  // form.append('file', fs.createReadStream(fullArchivePath))
+}
 
 
 //   getDataArchiveList: (dataUrl: string, apiKey: string, localDataArchiveNames: any, callback: CallbackObjErr) => {
@@ -430,40 +539,40 @@ export function dataServiceCall(endpoint: string, callback: CallbackObjErr) {
 
 
 
-//   zipDirectory: (dirToZip: string, zipPath: string, zipFileName: string, callback: CallbackErr) => {
+export function zipDirectory(dirToZip: string, zipPath: string, zipFileName: string, callback: CallbackErr) {
 
-//     const output = fs.createWriteStream(path.join(zipPath, zipFileName))
-//     const archive = archiver('zip', {
-//       zlib: { level: 9 } // Sets the compression level.
-//     })
+  const output = fs.createWriteStream(path.join(zipPath, zipFileName))
+  const archive = archiver('zip', {
+    zlib: { level: 9 } // Sets the compression level.
+  })
 
-//     // listen for all archive data to be written
-//     // 'close' event is fired only when a file descriptor is involved
-//     output.on('close', () => {
-//       log.log('zip file has been created (' + archive.pointer() + ' total bytes)', zipPath, zipFileName)
-//       callback(null)
-//     })
+  // listen for all archive data to be written
+  // 'close' event is fired only when a file descriptor is involved
+  output.on('close', () => {
+    log.log('zip file has been created (' + archive.pointer() + ' total bytes)', zipPath, zipFileName)
+    callback(null)
+  })
 
-//     // good practice to catch warnings (ie stat failures and other non-blocking errors)
-//     archive.on('warning', (err: any) => {
-//       if (err.code === 'ENOENT') {
-//         log.error('error creating archive', err)
-//         callback(err)
-//       } else {
-//         callback(err)
-//       }
-//     })
+  // good practice to catch warnings (ie stat failures and other non-blocking errors)
+  archive.on('warning', (err: any) => {
+    if (err.code === 'ENOENT') {
+      log.error('error creating archive', err)
+      callback(err)
+    } else {
+      callback(err)
+    }
+  })
 
-//     // good practice to catch this error explicitly
-//     archive.on('error', (err: any) => {
-//       callback(err)
-//     })
+  // good practice to catch this error explicitly
+  archive.on('error', (err: any) => {
+    callback(err)
+  })
 
-//     // pipe archive data to the file
-//     archive.pipe(output)
-//     archive.directory(dirToZip, false)
-//     archive.finalize()
-//   },
+  // pipe archive data to the file
+  archive.pipe(output)
+  archive.directory(dirToZip, false)
+  archive.finalize()
+}
 
 
 

@@ -25,11 +25,13 @@
         </div>
         <div class="container-fluid">
           <div class="row alert alert-warning" role="alert">
-            Be a little careful here!  Data is updated in individual files which means all you can do is force-get every file that was updated as of a given date, or delete all files.  There's no concept of 'deleting the last month' (e.g. going back in time.)
+            Be a little careful here!  Data is updated in individual files which means all you can do is force-get every file that was updated as of a given date, or delete all files.  There's no concept of 'deleting the last month' (e.g. going back in time) here.
+            <br /><br />
+            <strong>If going back in time is what you're after, go to the 'data archive' tab above.</strong>
           </div>
           <div class="row">
             <div class="col-sm">
-              <p>refresh all data <i>on and after</i> <input id="dataAfterDateAdd" :value="dataAfterDate" style="width:90px"> <a href="#" @click.stop.prevent="getDataAsOf()">go</a></p>
+              <p>refresh all data <i>on and after</i> <input id="dataAfterDateAdd" v-model="dataAfterDate" style="width:90px"> <a href="#" @click.stop.prevent="getDataAsOf()">go</a></p>
               <p>delete all data <a href="#" @click.stop.prevent="deleteData()">go</a> <span class="text-danger">{{deleteMsg}}</span></p>
             </div>
           </div>
@@ -139,7 +141,6 @@
       this.updateReady = 0
       this.updateButtonDisabled = true
       this.dataUpdater.checkStatus()
-      // admin.checkForDataUpdates(this.checkForDataUpdatesResult, null)  // returns {isOnline:true/false, dataAvailable:true/false, message:<ifFalse>{text:.., severity:...</if>}
     }
 
     checkForDataUpdatesResult(isOnline: boolean, dataAvailable: boolean, message?: string) {
@@ -185,31 +186,36 @@
     fetchDataError(error: ErrorObject) {
       log.error('error updating data', error)
     }
-  //   getDataAsOf() {
-  //     // const onAfterDate = parseDate(document.getElementById('dataAfterDateAdd').value)
-  //     // this.dataAfterDate = formatDate(onAfterDate)
-  //     // this.updateReady = 0
-  //     // this.updateButtonDisabled = true
-  //     // this.adminObj.checkForDataUpdates(this.checkForDataUpdatesResult, onAfterDate)
-  //   }
-  //   deleteData() {
-  //     // document.getElementById('deleteDataModal').style.display = 'block'
-  //   }
-  //   deleteDataDecline() {
-  //     // document.getElementById('deleteDataModal').style.display = 'none'
-  //   }
-  //   deleteDataAccept() {
-  //     // document.getElementById('deleteDataModal').style.display = 'none'
-  //     // this.adminObj.deleteData(err => {
-  //     //   if (err) {
-  //     //     log.error(err)
-  //     //     this.deleteMsg = 'error deleting files'
-  //     //   } else {
-  //     //     this.deleteMsg = 'files deleted'
-  //     //   }
-  //     //   setTimeout(() => { this.deleteMsg = '' }, 3000)
-  //     // })
-  //   }
+    getDataAsOf() {
+      this.updateReady = 0
+      this.updateButtonDisabled = true
+      this.dataUpdater.setAsOfDateInclusive(parseDate(this.dataAfterDate) as Date)
+      this.dataUpdater.checkStatus()
+      // this.adminObj.checkForDataUpdates(this.checkForDataUpdatesResult, onAfterDate)
+    }
+    deleteData() {
+      document.getElementById('deleteDataModal')!.style.display = 'block'
+    }
+    deleteDataDecline() {
+      document.getElementById('deleteDataModal')!.style.display = 'none'
+    }
+    deleteDataAccept() {
+      document.getElementById('deleteDataModal')!.style.display = 'none'
+      admin.deleteData((success: boolean, err: any) => {
+        if (!success) {
+          log.error(err.error)
+          this.deleteMsg = ' error deleting files'
+        } else {
+          // note that I'm separately setting the local dataUpdater object's asOf date to undefined
+          //  this allows me to re-run data (the object doesn't have a stored asOfDate)
+          //  the alternative is the make admin.deleteData (above) a method of the dataUpdater class, but
+          //   I'd like that to be a more generic function for other use cases
+          this.dataUpdater.setAsOfDateInclusive(undefined)
+          this.deleteMsg = ' files deleted'
+        }
+        setTimeout(() => { this.deleteMsg = '' }, 3000)
+      })
+    }
   }
 
 

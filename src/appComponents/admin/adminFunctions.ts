@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * THIS FILE contains a bunch of utility functions that are called throughout the app.  It does two key things
+ * THIS FILE contains a bunch of utility functions that are called throughout the app.  It does three key things
  *  - updates state depending on user actions
  *  - updates the local storage with data/config etc
  *  - updates the cloud storage with data/config etc
@@ -26,7 +26,6 @@ import * as utils from './adminUtils'
 import log from 'electron-log'
 
 
-
 type CallbackSuccess = (success: boolean) => void
 type CallbackSuccessErr = (success: boolean, error?: ErrorObject) => void
 type CallbackDataUpdateCheck = (isOnline: boolean, dataAvailable: boolean, message?: string) => void
@@ -34,12 +33,24 @@ type CallbackGetDataUpdateFiles = (dataLogFiles: DataLogFileItem[], err?: ErrorO
 type CallbackGetDataUpdateProgress = (percentComplete: number, percentFailed: number, totalNumber: number) => void
 type CallbackGetDataUpdateErrors = (arrayOfErrors: DataLogFileItemProgress[]) => void
 
-
 interface StatusErrorObject {
   status: number
   error?: any
 }
 
+
+
+// generally updating the config file with values
+export function updateConfig(key: string, value: string | number | null) {
+  const appConfig = JSON.parse(fs.readFileSync(store.getters.fullAppConfigFilePath, 'utf8'))
+  appConfig[key] = value
+  fs.writeFileSync(store.getters.fullAppConfigFilePath, JSON.stringify(appConfig, null, '\t'))
+}
+
+/*
+  APPLICATION INITALIZATION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  Things like, is this a first time user? If so, build out the skeleton of local directories etc
+*/
 
 export interface AppInitialization {
   isFirstTimeUser: () => boolean
@@ -51,7 +62,6 @@ export interface AppInitialization {
 export interface CheckNetwork {
   isReadyForCloud: () => boolean
 }
-
 
 export function isFirstTimeUser(): boolean {
   // check if the path and config file exist.  If so, this is an existing user.
@@ -65,7 +75,7 @@ export function initAppDirectories(): void {
 
   // going to write a bunch of directories and skeleton files that the app uses throughout
   //  goal here is to have a files that are separate from the app (app can be wiped and reinstalled if needed)
-  //  all of the paths are stored in state (.store). Getters are used to compose the paths
+  //  all of the paths are stored in state (store.ts). Getters are used to compose the paths
   const defaultAppConfig = require('@/configuration/defaultAppConfig.json')
   const defaultPresentationFlow = require('@/configuration/defaultPresentationFlow.json')
   const defaultPresentationConfig = require('@/configuration/defaultPresentationConfig.json')
@@ -422,6 +432,7 @@ export let imageManagement = {
 
 /*
   DATA PUBLISH AND UPDATE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Creating new data files locally and pushing them to the cloud
 */
 export function publishOneDataFile(localDataFileName: string, callback: CallbackSuccessErr) {
   // make sure we're online and connected to data
@@ -527,6 +538,9 @@ export interface DataLogFileItemProgress extends DataLogFileItem {
   msg?: string
 }
 
+// this is a larger class to manage some state around downloading files
+//  specifically, we need to htink about the asOfDate of data updates, and how to inform the user user of progress
+//    (remember that at times, these downloads might be a lot of large-ish files, which will take some time.)
 export class GetDataUpdateFilesAsOf {
   dataUpdateCheckCallback: CallbackDataUpdateCheck
   progressCallback: CallbackGetDataUpdateProgress
@@ -586,7 +600,7 @@ export class GetDataUpdateFilesAsOf {
   }
 
 
-  public setAsOfDateInclusive(dt: Date) {
+  public setAsOfDateInclusive(dt: Date | undefined) {
     this.asOfDateInclusive = dt
   }
 
@@ -663,11 +677,25 @@ export class GetDataUpdateFilesAsOf {
 }
 
 
-export function updateConfig(key: string, value: string | number) {
-  const appConfig = JSON.parse(fs.readFileSync(store.getters.fullAppConfigFilePath, 'utf8'))
-  appConfig[key] = value
-  fs.writeFileSync(store.getters.fullAppConfigFilePath, JSON.stringify(appConfig, null, '\t'))
+
+export function deleteData(callback: CallbackSuccessErr) {
+  fs.readdir(store.getters.fullAppDataStoreDirectoryPath, (readDirErr, files) => {
+    if (readDirErr) {
+      callback(false, {error: readDirErr})
+      return
+    }
+    for (const file of files) {
+      fs.unlink(path.join(store.getters.fullAppDataStoreDirectoryPath, file), err => {
+        if (err) {callback(false, {error: err}); return}
+      })
+    }
+    // update the config to null date
+    updateConfig('lastDataUpdate', null)
+    callback(true)
+  })
 }
+
+
 
 
 // export function getUpdatedData(progressCallback, completeCallback) {
@@ -764,91 +792,91 @@ export let dataUpdate = {
 /*
   DATA ARCHIVE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-export let dataArchive = {
+export function getLocalArchives() {
+  // get a list of all the archives on the user's machine (.zip files in _dataArchive directory)
+  const archives: string[] = []
+  fs.readdirSync(store.getters.fullAppArchiveDirectoryPath).forEach(file => {
+    if (file.indexOf('.zip') !== -1) {
+      archives.push(file)
+    }
+  })
+  return archives
+}
 
-  // archiveLocalData: (callback) => {
-  //   // going to get everythingin the _data directory, create a .zip it, name it dataArchive-yyyy-mm-dd-hh-mm.zip and move to _archive directory
-  //   const now = new Date()
-  //   const archiveFilename = 'dataArchive_' + now.getFullYear() + '-' +
-  //                                         ((now.getMonth() + 1) < 10 ? '0' + (now.getMonth() + 1) : (now.getMonth() + 1)) + '-' +
-  //                                         (now.getDate() < 10 ? '0' + now.getDate() : now.getDate()) + '-' +
-  //                                         (now.getHours() < 10 ? '0' + now.getHours() : now.getHours()) + '-' +
-  //                                         (now.getMinutes() < 10 ? '0' + now.getMinutes() : now.getMinutes()) + '-' +
-  //                                         (now.getSeconds() < 10 ? '0' + now.getSeconds() : now.getSeconds()) + '.zip'
-  //   log.info('creating archive file', archiveFilename)
+export function archiveLocalData(callback: CallbackSuccessErr) {
+  // going to get everythingin the _data directory, create a .zip it, name it dataArchive-yyyy-mm-dd-hh-mm.zip and move to _archive directory
+  const now = new Date()
+  const archiveFilename = 'dataArchive_' + now.getFullYear() + '-' +
+                                        ((now.getMonth() + 1) < 10 ? '0' + (now.getMonth() + 1) : (now.getMonth() + 1)) + '-' +
+                                        (now.getDate() < 10 ? '0' + now.getDate() : now.getDate()) + '-' +
+                                        (now.getHours() < 10 ? '0' + now.getHours() : now.getHours()) + '-' +
+                                        (now.getMinutes() < 10 ? '0' + now.getMinutes() : now.getMinutes()) + '-' +
+                                        (now.getSeconds() < 10 ? '0' + now.getSeconds() : now.getSeconds()) + '.zip'
+  log.info('creating archive file', archiveFilename)
 
-  //   utils.zipDirectory(appDataPath, appDataArchivePath, archiveFilename, (err) => {
-  //     if (err) {
-  //       log.info('error creating archive', err)
-  //       callback(err)
-  //     } else {
-  //       callback()
-  //     }
-  //   })
-  // },
-
-
-  // deployArchive: (removeAllExistingFiles, archiveFileName, callback) => {
-  //   // going to get an existing archive (.zip) and expand it into the _data directory REMOVING everything else in that directory
-  //   if (removeAllExistingFiles) {
-  //     fs.readdir(appDataPath, (err, files) => {
-  //       if (err) {
-  //         log.error('error cleaning _data directory', err)
-  //         callback(err)
-  //       }
-  //       for (const file of files) {
-  //         fs.unlink(path.join(appDataPath, file), err => {
-  //           if (err) {
-  //             log.error('error deleting file from _data directory', err)
-  //             callback(err)
-  //           }
-  //         })
-  //       }
-  //     })
-  //   }
-
-  //   // unzip the chosen archive and put the contents in the _data folder
-  //   try {
-  //     fs.createReadStream(path.join(appDataArchivePath, archiveFileName)).pipe(unzipper.Extract({ path: appDataPath }))
-  //     callback()
-  //   } catch (e) {
-  //     log.error('error unzipping archive', e)
-  //     callback(e)
-  //   }
-
-  // },
+  utils.zipDirectory(store.getters.fullAppDataStoreDirectoryPath, store.getters.fullAppArchiveDirectoryPath, archiveFilename, (err) => {
+    if (err) {
+      log.info('error creating archive', err)
+      callback(false, {error: err})
+    } else {
+      callback(true)
+    }
+  })
+}
 
 
-  // getLocalArchives: () => {
-  //   // get a list of all the archives on the user's machine (.zip files in _dataArchive directory)
-  //   const archives = []
-  //   fs.readdirSync(appDataArchivePath).forEach(file => {
-  //     if (file.indexOf('.zip') !== -1) {
-  //       archives.push(file)
-  //     }
-  //   })
-  //   return archives
-  // },
+export function deployArchive(removeAllExistingFiles: boolean, archiveFileName: string, callback: CallbackSuccessErr) {
+  // going to get an existing archive (.zip) and expand it into the _data directory REMOVING everything else in that directory
+  if (removeAllExistingFiles) {
+    fs.readdir(store.getters.fullAppDataStoreDirectoryPath, (err, files) => {
+      if (err) {
+        log.error('error cleaning _data directory', err)
+        callback(false, {error: err})
+      }
+      for (const file of files) {
+        fs.unlink(path.join(store.getters.fullAppDataStoreDirectoryPath, file), errUnlink => {
+          if (errUnlink) {
+            log.error('error deleting file from _data directory', errUnlink)
+            callback(false, {error: errUnlink})
+          }
+        })
+      }
+    })
+  }
+
+  // unzip the chosen archive and put the contents in the _data folder
+  try {
+    fs.createReadStream(path.join(store.getters.fullAppArchiveDirectoryPath, archiveFileName)).pipe(unzipper.Extract({ path: store.getters.fullAppDataStoreDirectoryPath }))
+    callback(true)
+  } catch (e) {
+    log.error('error unzipping archive', e)
+    callback(false, {error: e})
+  }
+
+}
 
 
-  // publishDataArchive: (localDataArchiveFileName, callback) => {
-  //   // make sure we're online and connected to data
-  //   utils.checkOnlineAndDataConnectionAndApiKey(_state.dataUpdateServiceURL, _state.apiKey, (online, err) => {
-  //     if (online) {
-  //       // make call to server to get data archives
-  //       utils.publishDataArchive(_state.dataUpdateServiceURL, _state.apiKey, appDataArchivePath, localDataArchiveFileName, (data, err) => {
-  //         if (err) {
-  //           callback(null, {error: err})
-  //         } else {
-  //           callback({status: 200})
-  //         }
-  //       })
-  //     } else {
-  //       log.error('could not connect to data provider to upload data archive', err)
-  //       callback(null, {error: err})
-  //     }
-  //   })
-  // },
+export function publishDataArchive(localDataArchiveFileName: string, callback: CallbackSuccessErr) {
+  // make sure we're online and connected to data
+  checkDataConnectionReady((success: boolean, error?: ErrorObject) => {
+    if (success) {
+      // make call to server to get data archives
+      utils.publishDataArchive(
+        store.getters.getDataUpdateServiceURL,
+        store.getters.getApiKey,
+        store.getters.fullAppArchiveDirectoryPath, localDataArchiveFileName, (successPublish: boolean, err?: ErrorObject) => {
+        if (!successPublish) {
+          callback(false, {error: err})
+        } else {
+          callback(true)
+        }
+      })
+    } else {
+      log.error('could not connect to data provider to upload data archive', error ? error.error : error)
+      callback(false, error)
+    }
+  })
+}
 
   // downloadDataArchiveList: (callback) => {
   //   // will download list all archives. only want archives we dont already have locally, so pass an array of what we have to prevent large, unnecessary downloads
@@ -892,7 +920,7 @@ export let dataArchive = {
 
   // },
 
-}
+
 
 /*
   APPLICATION UPDATE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
