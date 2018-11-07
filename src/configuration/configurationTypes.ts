@@ -195,6 +195,7 @@ export interface DataLogFileItem {
   file: string        // e.g.  "DoubleNumber.json"
 }
 
+
 /**************************************/
 // generics
 export type CallbackObjErr = (result: any, error?: ErrorObject) => void

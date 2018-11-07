@@ -23,7 +23,6 @@
     "json2csv": "^4.2.1",
     "jsonschema": "^1.2.4",
     "mssql": "^4.2.1",
-    "needle": "^2.2.4",
     "popper.js": "^1.14.4",
     "simplemde": "^1.11.2",
     "sql-formatter": "^2.3.1",

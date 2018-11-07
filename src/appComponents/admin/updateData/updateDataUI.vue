@@ -51,6 +51,7 @@
       <div v-if="updateReady === 1" class="updateContainer">
         <p class="text-success">New data is available, click the button below to continue.</p>
         <button type="button" class="btn btn-primary" @click="fetchData" :disabled="amFetchingData">get latest data</button>
+        <input type="checkbox" v-model="doLocalDataArchive" /><label>Create local data archive before getting data? (recommended)</label>
         <div v-if="amFetchingData || fetchDataComplete">
           <br />
           <div class="progress">
@@ -128,6 +129,8 @@
 
     dataUpdater: admin.GetDataUpdateFilesAsOf
 
+    doLocalDataArchive: boolean = true
+
     constructor() {
       super()
       // can set initial states here
@@ -164,7 +167,25 @@
     fetchData() {
       this.amFetchingData = true
       this.numberOfFilesToUpdate = 0
-      this.dataUpdater.checkStatusAndGetFiles()
+
+      let fetchReadyAfterArchive = true
+      // if requested, archive the data first
+      if (this.doLocalDataArchive) {
+        log.info('creating local archive before updating')
+        admin.archiveLocalData((success: boolean, error?: ErrorObject) => {
+          fetchReadyAfterArchive = success
+          if (!fetchReadyAfterArchive) {
+            fetchReadyAfterArchive = window.confirm('The archive was not successfully created. Do you want to fetch data anyway?\n\n(' + JSON.stringify(error) + ')')
+          }
+        })
+      }
+
+      if (fetchReadyAfterArchive) {
+        this.dataUpdater.checkStatusAndGetFiles()
+      } else {
+        this.amFetchingData = false
+      }
+
     }
     fetchDataProgress(percentComplete: number, percentFailed: number, totalNumber: number) { // 0 to 100
       this.numberOfFilesToUpdate = totalNumber
@@ -222,6 +243,15 @@
 </script>
 
 <style scoped lang="scss">
+
+label{
+  padding-left: 4px;
+  font-style: italic;
+  font-size: 0.9em;
+}
+input[type='checkbox']{
+  margin-left: 25px;
+}
 //   .updateContainer{
 //     margin-top: 30px;
 //   }

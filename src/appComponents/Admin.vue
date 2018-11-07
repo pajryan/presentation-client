@@ -104,6 +104,14 @@ export default{
           render: h => h(tab.uiToLoad, { props: {adminObj: this.adminObj } })
         })
       } else {
+        // when chaning tabs, run the (optional) `changedToThisTab()` function inside the component
+        //  this allows me to do things like refresh content in a tab that has already been loaded
+        //    (e.g. when archves are created from the 'generate data' tab, I want to update the local archives in the 'data archive' tab)
+        //  this could be achieved by moving relevant items to state, but that's overkill in some instances.
+        if (this.vues[tab.index].$children[0].changedToThisTab) {
+          this.vues[tab.index].$children[0].changedToThisTab()
+        }
+
         // call the child tab's getPresentations function to refresh the list of presentations.
         // This matters e.g. when a new presentation has been created in "edit presentation", then the user comes back to "manage presentation".
         // We want the new presentation to appear
@@ -111,6 +119,7 @@ export default{
         //   this.vues[tab.index].$children[0].getPresentations()
         // }
       }
+
     }
   }
 }

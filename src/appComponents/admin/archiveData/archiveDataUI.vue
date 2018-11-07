@@ -16,7 +16,8 @@
       
       <br /><br /> <br /><br />   
       <h3>Local Archives</h3>
-      <p v-if="existingLocalArchives.length===0">You have no local archives {{existingLocalArchives}}</p>
+      <p v-show="publishArchiveErrorMsg!=''"  class="alert alert-danger">{{publishArchiveErrorMsg}}</p>
+      <p v-if="existingLocalArchives.length===0">You have no local archives</p>
       <table class="table table-sm" v-if="existingLocalArchives.length>0"> 
         <thead>
           <tr>
@@ -58,10 +59,11 @@
         <tbody id="presentationTableBody">
           <tr v-for="publishedArchive in existingPublishedArchives" :key="publishedArchive.id">
             <td :title="publishedArchive">{{titleToDate(publishedArchive)}}</td>
-            <td><button type="button" class="btn btn-primary btn-sm" @click="downloadPublishedArchiveToLocal(publishedArchive)">download to local archives</button></td>
+            <td><button type="button" class="btn btn-primary btn-sm" @click="downloadPublishedArchiveToLocal(publishedArchive, $event)">download to local archives</button></td>
           </tr>
         </tbody>
-      </table>      
+      </table>
+      <p v-show="existingPublishedArchivesMsg!=''"  class="alert alert-warning">{{existingPublishedArchivesMsg}}</p>  
 
     </div> 
       
@@ -92,6 +94,7 @@
     archiveButtonClass: string = classReady
     archiveErrorMsg: string = ''
     archiveSuccessMsg: string = ''
+    publishArchiveErrorMsg: string = ''
 
     existingLocalArchives: string[] = []
 
@@ -99,12 +102,18 @@
     getPublishedArchivesButtonClass: string = classReady
     getPublishedArchivesErrorMsg: string = ''
     existingPublishedArchives: string[] = []
+    existingPublishedArchivesMsg: string = ''
 
     constructor() {
       super()
     }
 
     mounted() {
+      this.getLocalArchives()
+    }
+
+    // called when the user switches *back* to this tab (not on initial load)
+    changedToThisTab() {
       this.getLocalArchives()
     }
 
@@ -147,11 +156,12 @@
     }
 
     publishArchive(archiveFileName: string, event: any) {
-      log.log('going to publish to server: ', archiveFileName)
+      this.publishArchiveErrorMsg = ''
       event.target.className = classInProgress
       admin.publishDataArchive(archiveFileName, (success: boolean, err?: ErrorObject) => {
         if (err) {
           log.log('Error publishing archive', err.error)
+          this.publishArchiveErrorMsg = 'Error publishing archive: ' + err.error
           event.target.className = classFail
         } else {
           log.log('Success publishing archive')
@@ -163,47 +173,50 @@
       })
     }
 
-    // downloadDataArchiveList() {
-    //   this.isRunningGetPublishedArchives = true
-    //   // this.getPublishedArchivesButtonClass = classInProgress;
-    //   this.adminObj.downloadDataArchiveList((res, err) => {
-    //     this.isRunningGetPublishedArchives = false
-    //     if (err) {
-    //       this.getPublishedArchivesButtonClass = classFail
-    //       this.getPublishedArchivesErrorMsg = 'Failed to get published archives. (' + err + ')'
+    downloadDataArchiveList() {
+      this.isRunningGetPublishedArchives = true
+      this.existingPublishedArchivesMsg = ''
+      // this.getPublishedArchivesButtonClass = classInProgress;
+      admin.downloadDataArchiveList((res, err) => {
+        this.isRunningGetPublishedArchives = false
+        if (res && res.status === 200) {
+          log.log('got list of remote archives', res)
+          // this.getPublishedArchivesButtonClass = classSuccess;
+          if (res.archives.length === 0) {
+            this.existingPublishedArchivesMsg = 'No new published archives found.'
+          }
+          this.existingPublishedArchives = res.archives
+          // sort with most recent date on top
+          this.existingPublishedArchives = this.existingPublishedArchives.sort((a, b) => {
+            return a > b ? -1 : 1
+          })
+          setTimeout(() => {
+            this.getPublishedArchivesButtonClass = classReady
+          }, 2000)
 
-    //     } else {
-    //       log.log('got list of remote archives', res)
-    //       // this.getPublishedArchivesButtonClass = classSuccess;
-    //       this.existingPublishedArchives = res.data.archives
-    //       // sort with most recent date on top
-    //       this.existingPublishedArchives = this.existingPublishedArchives.sort((a, b) => {
-    //         return a > b ? -1 : 1
-    //       })
-    //       setTimeout(() => {
-    //         this.getPublishedArchivesButtonClass = classReady
-    //       }, 2000)
-    //     }
-    //   })
-    // }
+        } else {
+          this.getPublishedArchivesButtonClass = classFail
+          this.getPublishedArchivesErrorMsg = 'Failed to get published archives. (' + err + ')'
+        }
+      })
+    }
 
-    // downloadPublishedArchiveToLocal(archiveFileName) {
-    //   log.log('downloading archive', archiveFileName)
-    //   // this.event = event;
-    //   // this.event.target.className = classInProgress;
-    //   this.adminObj.downloadOneDataArchive(archiveFileName, (res, err) => {
-    //     if (err) {
-    //       log.log('Error downloading archive', err)
-    //       this.event.target.className = classFail
-    //     } else {
-    //       log.log('Success downloading archive')
-    //       // this.event.target.className = classSuccess;
-    //       // refresh the local and published lists
-    //       this.downloadDataArchiveList()
-    //       this.getLocalArchives()
-    //     }
-    //   })
-    // }
+    downloadPublishedArchiveToLocal(archiveFileName: string, event: any) {
+      log.log('downloading archive', archiveFileName)
+      event.target.className = classInProgress
+      admin.downloadOneDataArchive(archiveFileName, (res, err) => {
+        if (err) {
+          log.log('Error downloading archive', err)
+          event.target.className = classFail
+        } else {
+          log.log('Success downloading archive')
+          event.target.className = classSuccess
+          // refresh the local and published lists
+          this.downloadDataArchiveList()
+          this.getLocalArchives()
+        }
+      })
+    }
 
     deployArchive(archiveFileName: string, event: any) {
       if (window.confirm('This will overwrite your existing data. Do you want to continue? This cannot be undone.')) {

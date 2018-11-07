@@ -30,6 +30,7 @@ type CallbackSuccess = (success: boolean) => void
 type CallbackSuccessErr = (success: boolean, error?: ErrorObject) => void
 type CallbackDataUpdateCheck = (isOnline: boolean, dataAvailable: boolean, message?: string) => void
 type CallbackGetDataUpdateFiles = (dataLogFiles: DataLogFileItem[], err?: ErrorObject) => void
+type CallbackGetPublishedArchiveFiles = (archiveFileNames: any | null, err?: ErrorObject) => void
 type CallbackGetDataUpdateProgress = (percentComplete: number, percentFailed: number, totalNumber: number) => void
 type CallbackGetDataUpdateErrors = (arrayOfErrors: DataLogFileItemProgress[]) => void
 
@@ -792,7 +793,7 @@ export let dataUpdate = {
 /*
   DATA ARCHIVE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-export function getLocalArchives() {
+export function getLocalArchives(): string[] {
   // get a list of all the archives on the user's machine (.zip files in _dataArchive directory)
   const archives: string[] = []
   fs.readdirSync(store.getters.fullAppArchiveDirectoryPath).forEach(file => {
@@ -814,14 +815,18 @@ export function archiveLocalData(callback: CallbackSuccessErr) {
                                         (now.getSeconds() < 10 ? '0' + now.getSeconds() : now.getSeconds()) + '.zip'
   log.info('creating archive file', archiveFilename)
 
-  utils.zipDirectory(store.getters.fullAppDataStoreDirectoryPath, store.getters.fullAppArchiveDirectoryPath, archiveFilename, (err) => {
-    if (err) {
-      log.info('error creating archive', err)
-      callback(false, {error: err})
-    } else {
-      callback(true)
-    }
-  })
+  utils.zipDirectory(
+    store.getters.fullAppDataStoreDirectoryPath,
+    store.getters.fullAppArchiveDirectoryPath,
+    archiveFilename, (err) => {
+      if (err) {
+        log.info('error creating archive', err)
+        callback(false, {error: err})
+      } else {
+        callback(true)
+      }
+    })
+
 }
 
 
@@ -878,47 +883,47 @@ export function publishDataArchive(localDataArchiveFileName: string, callback: C
   })
 }
 
-  // downloadDataArchiveList: (callback) => {
-  //   // will download list all archives. only want archives we dont already have locally, so pass an array of what we have to prevent large, unnecessary downloads
-  //   const existingArchives = admin.getLocalArchives()
+export function downloadDataArchiveList(callback: CallbackGetPublishedArchiveFiles) {
+  // will download list all archives. only want archives we dont already have locally, so pass an array of what we have to prevent large, unnecessary downloads
+  const existingArchives: string[] = getLocalArchives()
 
-  //   // make sure we're online and connected to data
-  //   utils.checkOnlineAndDataConnectionAndApiKey(_state.dataUpdateServiceURL, _state.apiKey, (online, err) => {
-  //     if (online) {
-  //       // make call to server to get data archives
-  //       utils.getDataArchiveList(_state.dataUpdateServiceURL, _state.apiKey, existingArchives, (data, err) => {
-  //         if (err) {
-  //           callback(null, {error: err})
-  //         } else {
-  //           callback({status: 200, data})
-  //         }
-  //       })
-  //     } else {
-  //       log.error('could not connect to data provider to download list of data archives', err)
-  //       callback(null, {error: err})
-  //     }
-  //   })
-  // },
+  // make sure we're online and connected to data
+  checkDataConnectionReady((success: boolean, connectError?: ErrorObject) => {
+    if (success) {
+      // make call to server to get data archives
+      utils.getDataArchiveList(existingArchives, (data, err) => {
+        if (err) {
+          callback(null, {error: err})
+        } else {
+          callback(data)
+        }
+      })
+    } else {
+      log.error('could not connect to data provider to download list of data archives', connectError)
+      callback(null, {error: connectError})
+    }
+  })
+}
 
-  // downloadOneDataArchive: (archiveFileName, callback) => {
-  //   // make sure we're online and connected to data
-  //   utils.checkOnlineAndDataConnectionAndApiKey(_state.dataUpdateServiceURL, _state.apiKey, (online, err) => {
-  //     if (online) {
-  //       // make call to server to get presentations
-  //       utils.getDataArchive(_state.dataUpdateServiceURL, _state.apiKey, archiveFileName, appDataArchivePath, (data, err) => {
-  //         if (err) {
-  //           callback(null, {error: err})
-  //         } else {
-  //           callback({status: 200})
-  //         }
-  //       })
-  //     } else {
-  //       log.error('could not connect to data provider to download data archive', err)
-  //       callback(null, {error: err})
-  //     }
-  //   })
+export function downloadOneDataArchive(archiveFileName: string, callback: CallbackSuccessErr) {
+  // make sure we're online and connected to data
+  checkDataConnectionReady((online, connectionErr) => {
+    if (online) {
+      // make call to server to get presentations
+      utils.getDataArchive(archiveFileName, (success: boolean, err?: ErrorObject) => {
+        if (err) {
+          callback(false, {error: err})
+        } else {
+          callback(true)
+        }
+      })
+    } else {
+      log.error('could not connect to data provider to download data archive', connectionErr)
+      callback(false, {error: connectionErr})
+    }
+  })
 
-  // },
+}
 
 
 
